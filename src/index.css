@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+@theme {
+  /* Obsidian & Champagne Palette */
+  --color-mm-bg: #0B0B0D;
+  --color-mm-bg2: #121215;
+  --color-mm-elevated: #19191D;
+  --color-mm-card: #17171B;
+  
+  /* Primary & Secondary Typography */
+  --color-mm-text: #F5F1E8;
+  --color-mm-text2: #B6B0A5;
+  --color-mm-muted: #77736D;
+  
+  /* Champagne Gold Accents */
+  --color-mm-gold: #D6BC86;
+  --color-mm-gold-light: #E9D8AF;
+  
+  /* Financial Indicators */
+  --color-mm-positive: #83C9A5;
+  --color-mm-negative: #D98282;
+  --color-mm-warning: #D9B46F;
+
+  /* Subtle Borders */
+  --color-mm-border: rgba(214, 188, 134, 0.16);
+  --color-mm-border-light: rgba(214, 188, 134, 0.24);
+
+  /* Legacy aliases redirected to luxury palette */
+  --color-mm-emerald: #D6BC86;
+  --color-mm-mint: #E9D8AF;
+  --color-mm-mint2: #D6BC86;
+  --color-mm-indigo: #D6BC86;
+  --color-mm-violet: #B6B0A5;
+  --color-mm-glass: rgba(23, 23, 27, 0.75);
+  --color-mm-glass-elevated: rgba(25, 25, 29, 0.88);
+
+  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(214, 188, 134, 0.2) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(214, 188, 134, 0.18);
+  border-radius: 9999px;
+}
+
+html {
+  background-color: #0B0B0D;
+  color: #F5F1E8;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #0B0B0D;
+  color: #F5F1E8;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  background-color: #0B0B0D;
+}
+
+/* ========================================================
+   OBSIDIAN & CHAMPAGNE LUXURY SURFACE SYSTEM
+   ======================================================== */
+
+/* Standard Luxury Card */
+.glass-card {
+  background-color: #17171B;
+  border: 1px solid rgba(214, 188, 134, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.6);
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(214, 188, 134, 0.24);
+  box-shadow: 0 16px 35px -10px rgba(0, 0, 0, 0.7);
+  transform: translateY(-1.5px);
+}
+
+/* Elevated Surface (modals, primary balance card, highlights) */
+.glass-card-elevated {
+  background-color: #19191D;
+  border: 1px solid rgba(214, 188, 134, 0.18);
+  border-radius: 22px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.75);
+}
+
+/* Subtle Pill / Row Material */
+.glass-subtle {
+  background-color: rgba(23, 23, 27, 0.7);
+  border: 1px solid rgba(214, 188, 134, 0.1);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.glass-subtle:hover {
+  border-color: rgba(214, 188, 134, 0.22);
+  background-color: rgba(25, 25, 29, 0.9);
+}
+
+/* Floating iOS Bottom Dock */
+.liquid-dock {
+  background-color: rgba(18, 18, 21, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(214, 188, 134, 0.16);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.85);
+}
+
+/* Fine Gold Line Sheen */
+.specular-sheen {
+  position: relative;
+}
+
+.specular-sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(214, 188, 134, 0.15) 20%,
+    rgba(233, 216, 175, 0.45) 50%,
+    rgba(214, 188, 134, 0.15) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Bottom safe area */
+.bottom-nav-safe {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Restrained Progress Bar */
+.progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background-color: #121215;
+  border: 1px solid rgba(214, 188, 134, 0.1);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Modal overlay */
+.overlay-bg {
+  background: rgba(5, 5, 7, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Active navigation state */
+.nav-active {
+  background-color: rgba(214, 188, 134, 0.1);
+  border: 1px solid rgba(214, 188, 134, 0.28);
+  color: #F5F1E8;
+}
+
+/* Number display with tabular numerals */
+.number-display {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Category & Donut Center */
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
