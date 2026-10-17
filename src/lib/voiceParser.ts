@@ -1,5 +1,5 @@
 // Multilingual Natural Language Parsing for MoneyMate Voice Assistant
-// Robust parsing for English, Hindi, Punjabi, and mixed Hinglish/Punglish
+// Robust category, intent, and amount detection across English, Hindi, Punjabi, and mixed Hinglish/Punglish
 
 export interface ParsedVoiceCommand {
   action: 'add_transaction' | 'add_budget' | 'unknown';
@@ -9,18 +9,15 @@ export interface ParsedVoiceCommand {
   category: string;
   paymentMethod: string;
   rawText: string;
-  targetBudgetMonth?: string;
   confidence: number;
 }
 
-// Category keyword mappings across English, Hindi, Punjabi, Hinglish
+// Category keyword mappings prioritized with specific words first
+// Notice Gym & Fitness keywords: 'protien', 'protein', 'gym', 'creatine', 'workout'
 const CATEGORY_MAP: Record<string, string[]> = {
-  'Food & Dining': [
-    'tea', 'chai', 'cha', 'chah', 'coffee', 'food', 'khana', 'khana pina', 'lunch',
-    'dinner', 'breakfast', 'snack', 'snacks', 'swiggy', 'zomato', 'restaurant',
-    'dhaba', 'pizza', 'burger', 'roti', 'sabzi', 'grocery', 'groceries', 'rashan',
-    'fruits', 'fal', 'milk', 'doodh', 'paneer', 'nashta', 'rasoi', 'hotel', 'biryani',
-    'momo', 'momos', 'samosa', 'maggi', 'cafe', 'drinks', 'water', 'sharbat'
+  'Gym & Fitness': [
+    'protien', 'protein', 'gym', 'workout', 'fitness', 'creatine', 'bcaa', 'supplement',
+    'supplements', 'whey', 'dumble', 'dumbbell', 'trainer', 'yoga', 'exercise', 'sports'
   ],
   'Shopping': [
     'shopping', 'clothes', 'kapde', 'kapre', 'shoes', 'joota', 'amazon', 'flipkart',
@@ -33,17 +30,13 @@ const CATEGORY_MAP: Record<string, string[]> = {
     'travel', 'scooter', 'bike', 'car', 'parking', 'toll'
   ],
   'Bills & Utilities': [
-    'bill', 'electricity', 'bijli', 'water bill', 'pani', 'wifi', 'internet', 'recharge',
-    'phone bill', 'gas', 'cylinder', 'rent', 'kamre ka kiraya', 'kiraya', 'maintenance',
-    'broadband', 'utility', 'light bill'
+    'electricity', 'bijli', 'water bill', 'pani bill', 'wifi', 'internet', 'recharge',
+    'phone bill', 'gas', 'cylinder', 'rent', 'kamre ka kiraya', 'maintenance',
+    'broadband', 'utility', 'light bill', 'bill'
   ],
   'Entertainment': [
     'movie', 'cinema', 'theatre', 'netflix', 'hotstar', 'prime', 'spotify', 'game',
     'gaming', 'steam', 'concert', 'match', 'outing', 'party', 'club', 'pub', 'fun'
-  ],
-  'Gym & Fitness': [
-    'gym', 'workout', 'fitness', 'protein', 'creatine', 'supplement', 'supplements',
-    'trainer', 'yoga', 'exercise', 'sports'
   ],
   'Health': [
     'doctor', 'hospital', 'medicine', 'medicines', 'dawai', 'dawakhana', 'clinic',
@@ -62,9 +55,16 @@ const CATEGORY_MAP: Record<string, string[]> = {
   'Investment': [
     'stocks', 'share', 'shares', 'mutual fund', 'crypto', 'bitcoin', 'dividend', 'interest', 'byaj'
   ],
+  'Food & Dining': [
+    'tea', 'chai', 'cha', 'chah', 'coffee', 'food', 'khana', 'lunch',
+    'dinner', 'breakfast', 'snack', 'snacks', 'swiggy', 'zomato', 'restaurant',
+    'dhaba', 'pizza', 'burger', 'roti', 'sabzi', 'grocery', 'groceries', 'rashan',
+    'fruits', 'fal', 'milk', 'doodh', 'paneer', 'nashta', 'rasoi', 'hotel', 'biryani',
+    'momo', 'momos', 'samosa', 'maggi', 'cafe', 'drinks', 'water', 'sharbat'
+  ],
 };
 
-// Words for numbers in Hindi / Punjabi / English
+// Numbers in English / Hindi / Punjabi phonetics
 const WORD_TO_NUMBER: Record<string, number> = {
   'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
   'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
@@ -86,19 +86,19 @@ export function parseVoiceInput(text: string): ParsedVoiceCommand {
 
   // 1. Check for Explicit Budget Setting Command:
   // e.g. "set budget 5000 for food", "add budget 1000 for shopping", "food ka budget 5000 rkho"
-  const isBudgetCommand = /\b(budget|set budget|add budget|limit)\b/i.test(clean) &&
-    !/\b(kharche|spent|spend|paid|kharcha|diya|diye)\b/i.test(clean);
+  // Note: If user says "ohnu gym ch add krde" or "add krde gym ch", that's transaction adding, not budget limit setting!
+  const isBudgetCommand = /\b(budget limit|set budget|monthly budget|budget set|limit set)\b/i.test(clean) ||
+    (/\bbudget\b/i.test(clean) && !/\b(kharche|spent|spend|paid|kharcha|diye|diya|ch kharche|teh)\b/i.test(clean));
 
   // 2. Detect Intent: Income vs Expense vs Transfer
   const isIncome = /\b(received|got|earned|credited|aaye|aaya|mili|mile|labhe|kamaye|income|salary|tankhwah)\b/i.test(clean);
   const type: 'expense' | 'income' | 'transfer' = isIncome ? 'income' : 'expense';
 
   // 3. Extract Amount
-  // Matches "$10", "10$", "10 dollars", "₹500", "500 rs", "500 rupaye", "500 rupeye", "10"
+  // Matches "1000", "1000 ruppee", "1000 rs", "$10", "10$", "10 dollars", "₹500", "500 rupaye"
   let amount: number | undefined;
 
-  // First regex looks for digits
-  const numPattern = /(?:[\$₹£€]|rs\.?|inr|rupees|rupaye|dollars?)?\s*(\d+(?:\.\d+)?)\s*(?:[\$₹£€]|rs\.?|inr|rupees|rupaye|dollars?|bucks)?/i;
+  const numPattern = /(?:[\$₹£€]|rs\.?|inr|rupees?|ruppee|rupaye|dollars?)?\s*(\d+(?:\.\d+)?)\s*(?:[\$₹£€]|rs\.?|inr|rupees?|ruppee|rupaye|dollars?|bucks)?/i;
   const match = clean.match(numPattern);
 
   if (match && match[1]) {
@@ -119,15 +119,30 @@ export function parseVoiceInput(text: string): ParsedVoiceCommand {
     }
   }
 
-  // 4. Match Category across English, Hindi, and Punjabi
-  let category = type === 'income' ? 'Salary' : 'Food & Dining';
+  // 4. Match Category - Check for explicit user destination first!
+  // e.g. "gym ch add krde", "add in food", "food me add", "add krde gym ch"
+  let category = type === 'income' ? 'Salary' : 'Others';
   let matchedKeyword = '';
 
-  for (const [cat, keywords] of Object.entries(CATEGORY_MAP)) {
+  // Check explicit category names in the prompt first
+  const explicitCategories: Record<string, string[]> = {
+    'Gym & Fitness': ['gym', 'fitness', 'workout'],
+    'Food & Dining': ['food', 'dining', 'khana'],
+    'Shopping': ['shopping', 'clothes'],
+    'Transport': ['transport', 'travel'],
+    'Bills & Utilities': ['bill', 'utility', 'bills'],
+    'Entertainment': ['entertainment', 'movie'],
+    'Health': ['health', 'medical'],
+    'Education': ['education', 'study'],
+    'Investment': ['investment', 'stocks'],
+  };
+
+  for (const [catName, keywords] of Object.entries(explicitCategories)) {
     for (const kw of keywords) {
+      // Look for "gym ch", "in gym", "to gym", "gym me", "gym"
       const regex = new RegExp(`\\b${kw}\\b`, 'i');
       if (regex.test(clean)) {
-        category = cat;
+        category = catName;
         matchedKeyword = kw;
         break;
       }
@@ -135,16 +150,43 @@ export function parseVoiceInput(text: string): ParsedVoiceCommand {
     if (matchedKeyword) break;
   }
 
+  // If no explicit category name mentioned, search the detailed item keywords (e.g. protien, chai, burger)
+  if (!matchedKeyword) {
+    for (const [cat, keywords] of Object.entries(CATEGORY_MAP)) {
+      for (const kw of keywords) {
+        const regex = new RegExp(`\\b${kw}\\b`, 'i');
+        if (regex.test(clean)) {
+          category = cat;
+          matchedKeyword = kw;
+          break;
+        }
+      }
+      if (matchedKeyword) break;
+    }
+  }
+
+  // If still unmatched, default reasonably
+  if (!matchedKeyword) {
+    category = type === 'income' ? 'Salary' : 'Food & Dining';
+  }
+
   // 5. Extract Description
   let description = '';
   if (matchedKeyword) {
-    description = matchedKeyword.charAt(0).toUpperCase() + matchedKeyword.slice(1);
+    // If the keyword matched was 'gym', but user also said 'protien', extract item cleanly
+    if (/\b(protien|protein)\b/i.test(clean)) {
+      description = 'Protein';
+    } else if (/\b(chai|tea)\b/i.test(clean)) {
+      description = 'Tea';
+    } else {
+      description = matchedKeyword.charAt(0).toUpperCase() + matchedKeyword.slice(1);
+    }
   } else {
     // Strip common filler words
     const filtered = clean
-      .replace(/(?:[\$₹£€]|rs\.?|inr|rupees|rupaye|dollars?)\s*\d+(?:\.\d+)?/gi, '')
+      .replace(/(?:[\$₹£€]|rs\.?|inr|rupees?|ruppee|rupaye|dollars?)\s*\d+(?:\.\d+)?/gi, '')
       .replace(/\d+(?:\.\d+)?/g, '')
-      .replace(/\b(i|spent|spend|on|add|this|in|to|mai|me|aaj|kharche|kharcha|teh|ohnu|krde|ch|ka|ke|liye|diya|diye|mera|mere|nu)\b/gi, '')
+      .replace(/\b(i|spent|spend|on|add|this|in|to|mai|mane|me|aaj|kharche|kharcha|hai|teh|ohnu|krde|ch|ka|ke|liye|diya|diye|mera|mere|nu)\b/gi, '')
       .trim();
     description = filtered ? filtered.slice(0, 30) : (type === 'income' ? 'Income' : 'General Outflow');
     description = description.charAt(0).toUpperCase() + description.slice(1);

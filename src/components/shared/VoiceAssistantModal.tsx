@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Sparkles, X, Check, ArrowRight, Wallet, PiggyBank, Globe, ChevronDown } from 'lucide-react';
+import { Mic, MicOff, Sparkles, X, Check, ArrowRight, Wallet, PiggyBank, ChevronDown } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { parseVoiceInput, ParsedVoiceCommand } from '@/lib/voiceParser';
 import { PaymentSuccessOverlay } from '@/components/shared/PaymentSuccessOverlay';
@@ -33,7 +33,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
   const silenceTimerRef = useRef<any>(null);
   const countdownIntervalRef = useRef<any>(null);
   const audioIntervalRef = useRef<any>(null);
-  const isManuallyStoppedRef = useRef(false);
+  const activeSessionRef = useRef<boolean>(false);
 
   // Clear timers
   const clearTimers = () => {
@@ -97,7 +97,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     if ('speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
-        const text = `${parsed.category} ${parsed.action === 'add_budget' ? 'budget' : 'entry'} of ${settings.currencySymbol} ${parsed.amount} authorized.`;
+        const text = `${parsed.category} entry of ${settings.currencySymbol} ${parsed.amount} authorized.`;
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.05;
         window.speechSynthesis.speak(utterance);
@@ -127,9 +127,22 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     }, 1000);
   };
 
-  // Start speech recognition instance
+  // Clean tear-down of previous recognition
+  const tearDownRecognition = () => {
+    if (recognitionRef.current) {
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      rec.onstart = null;
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      try { rec.abort(); } catch {}
+    }
+  };
+
+  // Start speech recognition instance cleanly
   const startListening = () => {
-    isManuallyStoppedRef.current = false;
+    activeSessionRef.current = true;
     clearTimers();
     setTranscript('');
     setParsedResult(null);
@@ -140,14 +153,11 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
       return;
     }
 
-    try {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch {}
-      }
+    tearDownRecognition();
 
+    try {
       const recognition = new SpeechRecognition();
       recognition.lang = selectedLang;
-      // continuous=false ensures native end event fires properly on mobile iOS/Android
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.maxAlternatives = 3;
@@ -185,16 +195,17 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
       };
 
       recognition.onerror = (event: any) => {
-        console.log('[SpeechRecognition] notice:', event.error);
+        console.log('[SpeechRecognition] status:', event.error);
         if (event.error === 'not-allowed') {
-          showToast('Please allow microphone permissions to speak', 'error');
+          showToast('Please grant microphone permissions in your browser', 'error');
+          setIsListening(false);
         }
       };
 
       recognition.onend = () => {
         setIsListening(false);
-        // If not manually stopped, keep listening active unless auto-confirm is counting down
-        if (!isManuallyStoppedRef.current && isOpen && !parsedResult?.amount) {
+        // Automatically restart if modal is still open and user hasn't stopped or finalized
+        if (activeSessionRef.current && isOpen && !parsedResult?.amount) {
           try {
             recognition.start();
           } catch {}
@@ -210,11 +221,9 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
   };
 
   const stopListening = () => {
-    isManuallyStoppedRef.current = true;
+    activeSessionRef.current = false;
     clearTimers();
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-    }
+    tearDownRecognition();
     setIsListening(false);
   };
 
@@ -236,7 +245,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
       setParsedResult(parsed);
       executeEntry(parsed);
     } else {
-      showToast('Could not detect amount. E.g. "10$ on tea in food"', 'error');
+      showToast('Could not detect amount. E.g. "1000 protien gym"', 'error');
     }
   };
 
@@ -246,14 +255,13 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
       setTranscript('');
       setManualInput('');
       setParsedResult(null);
-      // Wait for user gesture or start if already permitted
+      // Small delay allows unmounted components/audio tracks to reset cleanly
       const t = setTimeout(() => {
         startListening();
-      }, 200);
+      }, 150);
       return () => clearTimeout(t);
     } else {
       stopListening();
-      clearTimers();
     }
   }, [isOpen, selectedLang]);
 
@@ -272,14 +280,14 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="overlay-bg absolute inset-0 backdrop-blur-xl bg-black/70"
+            className="overlay-bg absolute inset-0 backdrop-blur-xl bg-black/75"
           />
 
           {/* Modal Container: Bottom sheet on mobile, centered card on desktop */}
           <motion.div
-            initial={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
+            exit={{ opacity: 0, y: 50 }}
             transition={{ type: 'spring', damping: 28, stiffness: 380 }}
             className="relative z-10 w-full sm:max-w-md bg-[#121216] border border-[#D6BC86]/25 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden pb-8 sm:pb-6"
           >
@@ -301,7 +309,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                   <h3 className="text-sm font-bold text-[#F5F1E8] tracking-tight font-serif">
                     MoneyMate Voice AI
                   </h3>
-                  <p className="text-[10px] text-[#A39E95]">All Languages • Instant Detection</p>
+                  <p className="text-[10px] text-[#A39E95]">Hindi • Punjabi • English</p>
                 </div>
               </div>
 
@@ -393,7 +401,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                       Speak in Hindi, Punjabi, or English
                     </p>
                     <p className="text-[10px] text-[#77736D] italic">
-                      e.g. "I spent 10$ on tea" • "10$ kharche chai teh ohnu add krde food ch"
+                      e.g. "1000 ruppee kharche protein gym ch" • "10$ on tea in food"
                     </p>
                   </div>
                 )}
@@ -444,7 +452,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
             <form onSubmit={handleManualSubmit} className="mx-5 flex items-center gap-2">
               <input
                 type="text"
-                placeholder='Or type e.g. "10$ tea food" / "10$ kharche chai"'
+                placeholder='Or type e.g. "1000 protein gym" / "10$ tea food"'
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-[#0D0D10] border border-white/[0.08] text-xs text-[#F5F1E8] placeholder:text-[#66635D] focus:outline-none focus:border-[#D6BC86]/50"
