@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, ArrowUpDown, Plus, Target, BarChart3 } from 'lucide-react';
+import { Home, ArrowUpDown, Plus, Target, BarChart3, Mic } from 'lucide-react';
 import { AddTransactionSheet } from '@/components/transactions/AddTransactionSheet';
+import { VoiceAssistantModal } from '@/components/shared/VoiceAssistantModal';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
@@ -15,6 +16,7 @@ const navItems = [
 export const MobileBottomNavigation: React.FC = () => {
   const location = useLocation();
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   return (
     <>
@@ -24,16 +26,23 @@ export const MobileBottomNavigation: React.FC = () => {
             {navItems.map(item => {
               if (item.isCenter) {
                 return (
-                  <button
-                    key="add"
-                    onClick={() => setShowAddSheet(true)}
-                    className="relative -mt-5 group"
-                    aria-label="Add transaction"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[#D6BC86] text-[#0B0B0D] flex items-center justify-center shadow-md border border-[#E9D8AF]/50 group-active:scale-95 transition-transform duration-150">
-                      <Plus size={22} strokeWidth={2.2} />
-                    </div>
-                  </button>
+                  <div key="center-actions" className="relative -mt-6 flex items-center gap-1.5 group">
+                    <button
+                      onClick={() => setShowVoiceModal(true)}
+                      className="w-10 h-10 rounded-full bg-[#1A1A22] text-[#D6BC86] flex items-center justify-center shadow-lg border border-[#D6BC86]/35 active:scale-95 transition-transform"
+                      aria-label="Voice AI Assistant"
+                      title="Voice AI"
+                    >
+                      <Mic size={17} strokeWidth={2.2} />
+                    </button>
+                    <button
+                      onClick={() => setShowAddSheet(true)}
+                      className="w-12 h-12 rounded-full bg-[#D6BC86] text-[#0B0B0D] flex items-center justify-center shadow-md border border-[#E9D8AF]/50 active:scale-95 transition-transform"
+                      aria-label="Add transaction"
+                    >
+                      <Plus size={22} strokeWidth={2.4} />
+                    </button>
+                  </div>
                 );
               }
               
@@ -71,6 +80,7 @@ export const MobileBottomNavigation: React.FC = () => {
       </div>
 
       <AddTransactionSheet isOpen={showAddSheet} onClose={() => setShowAddSheet(false)} />
+      <VoiceAssistantModal isOpen={showVoiceModal} onClose={() => setShowVoiceModal(false)} />
     </>
   );
 };

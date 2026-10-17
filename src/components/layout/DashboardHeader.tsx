@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Search, Bell, Moon, Sun, ChevronDown, Compass, Calendar as CalendarIcon,
   Menu, X, LayoutDashboard, ArrowLeftRight, PiggyBank, Target, BarChart3,
-  Users, Settings as SettingsIcon, ShieldCheck, Cloud, CloudOff 
+  Users, Settings as SettingsIcon, ShieldCheck, Cloud, CloudOff, Mic 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/context/AppContext';
@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { OnboardingTourModal } from '@/components/shared/OnboardingTourModal';
 import { AuthModal } from '@/components/shared/AuthModal';
+import { VoiceAssistantModal } from '@/components/shared/VoiceAssistantModal';
 import { MoneyMateLogo } from '@/components/shared/MoneyMateLogo';
 
 const drawerNavItems = [
@@ -28,6 +29,7 @@ export const DashboardHeader: React.FC = () => {
   const [searchValue, setSearchValue] = useState('');
   const [showTour, setShowTour] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,6 +76,14 @@ export const DashboardHeader: React.FC = () => {
             title={isCloudSynced ? 'Synced with Firebase' : 'Connect Firebase Cloud'}
           >
             {isCloudSynced ? <Cloud size={15} strokeWidth={2} /> : <CloudOff size={15} strokeWidth={1.75} />}
+          </button>
+          <button
+            onClick={() => setShowVoice(true)}
+            className="p-1.5 rounded-lg bg-[#D6BC86]/15 border border-[#D6BC86]/35 text-[#D6BC86] active:scale-95 transition-transform"
+            aria-label="Voice Assistant"
+            title="MoneyMate Voice AI"
+          >
+            <Mic size={15} strokeWidth={2} />
           </button>
           <button
             onClick={() => setShowTour(true)}
@@ -219,6 +229,16 @@ export const DashboardHeader: React.FC = () => {
             <span>{isCloudSynced ? 'Cloud Synced' : 'Cloud Sync'}</span>
           </button>
 
+          {/* Voice AI Assistant Button */}
+          <button
+            onClick={() => setShowVoice(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#D6BC86]/15 border border-[#D6BC86]/35 hover:bg-[#D6BC86]/25 text-[#D6BC86] text-xs font-semibold tracking-wide transition-all active:scale-95 shadow-sm"
+            title="MoneyMate Voice AI (Hindi, Punjabi, English)"
+          >
+            <Mic size={14} strokeWidth={2.2} />
+            <span>Voice AI</span>
+          </button>
+
           {/* Guide Tour button */}
           <button
             onClick={() => setShowTour(true)}
@@ -271,6 +291,7 @@ export const DashboardHeader: React.FC = () => {
 
       <OnboardingTourModal isOpen={showTour} onClose={() => setShowTour(false)} />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+      <VoiceAssistantModal isOpen={showVoice} onClose={() => setShowVoice(false)} />
     </>
   );
 };
