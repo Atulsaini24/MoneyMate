@@ -241,25 +241,49 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
                   className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50 resize-none"
                 />
 
-                <div className="flex gap-3">
-                  <div className="flex-1 relative">
-                    <Calendar size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#77736D]" />
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={e => setDate(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
-                    />
+                {/* Date & Payment Method Custom Luxury Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Date Input Field */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#B6B0A5] flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#D6BC86]" />
+                      <span>Transaction Date</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={e => setDate(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.18)] text-sm font-medium text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/60 transition-colors [color-scheme:dark] cursor-pointer"
+                      />
+                    </div>
                   </div>
-                  <select
-                    value={paymentMethod}
-                    onChange={e => setPaymentMethod(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
-                  >
-                    {PAYMENT_METHODS.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+
+                  {/* Payment Method Selector */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#B6B0A5] flex items-center gap-1.5">
+                      <CreditCard size={13} className="text-[#D6BC86]" />
+                      <span>Payment Channel</span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <select
+                        value={paymentMethod}
+                        onChange={e => setPaymentMethod(e.target.value)}
+                        className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.18)] text-sm font-medium text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/60 transition-colors [color-scheme:dark] cursor-pointer"
+                      >
+                        {PAYMENT_METHODS.map(m => (
+                          <option key={m} value={m} className="bg-[#17171B] text-[#F5F1E8]">
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#D6BC86]">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
