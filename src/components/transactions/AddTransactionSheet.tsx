@@ -4,6 +4,7 @@ import { X, ChevronLeft, Calendar, CreditCard, FileText, Check } from 'lucide-re
 import { useApp } from '@/context/AppContext';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '@/types';
 import { CategoryIcon } from '@/components/shared/CategoryIcon';
+import { PaymentSuccessOverlay } from '@/components/shared/PaymentSuccessOverlay';
 import { formatCurrency } from '@/lib/utils';
 
 interface AddTransactionSheetProps {
@@ -16,7 +17,7 @@ interface AddTransactionSheetProps {
 export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
   isOpen, onClose, defaultType = 'expense', editTransaction
 }) => {
-  const { addTransaction, updateTransaction } = useApp();
+  const { addTransaction, updateTransaction, settings } = useApp();
   const [type, setType] = useState<'expense' | 'income' | 'transfer'>(editTransaction?.type || defaultType);
   const [amount, setAmount] = useState<string>(editTransaction?.amount?.toString() || '');
   const [description, setDescription] = useState(editTransaction?.description || '');
@@ -25,6 +26,8 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
   const [paymentMethod, setPaymentMethod] = useState(editTransaction?.paymentMethod || 'UPI');
   const [notes, setNotes] = useState(editTransaction?.notes || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const [lastSubmitted, setLastSubmitted] = useState<{ amount: number; type: string; description: string } | null>(null);
 
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
@@ -47,10 +50,14 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
   const handleSubmit = () => {
     if (!validate()) return;
     
+    const parsedAmount = parseFloat(amount);
+    const trimmedDesc = description.trim();
+    const curType = type;
+
     const data = {
-      type,
-      amount: parseFloat(amount),
-      description: description.trim(),
+      type: curType,
+      amount: parsedAmount,
+      description: trimmedDesc,
       category,
       date: new Date(date).toISOString(),
       paymentMethod,
@@ -63,6 +70,19 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
       addTransaction(data);
     }
     
+    // Store submitted transaction details for the success overlay
+    setLastSubmitted({
+      amount: parsedAmount,
+      type: curType,
+      description: trimmedDesc,
+    });
+
+    // Display the full-screen green payment successful animation
+    setShowSuccessOverlay(true);
+  };
+
+  const handleAnimationComplete = () => {
+    setShowSuccessOverlay(false);
     handleClose();
   };
 
@@ -257,6 +277,16 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
           </motion.div>
         </div>
       )}
+
+      {/* Full-screen Green Payment Success Animation */}
+      <PaymentSuccessOverlay
+        isOpen={showSuccessOverlay}
+        amount={lastSubmitted?.amount || 0}
+        type={lastSubmitted?.type || type}
+        description={lastSubmitted?.description || ''}
+        currencySymbol={settings?.currencySymbol || '₹'}
+        onComplete={handleAnimationComplete}
+      />
     </AnimatePresence>
   );
 };
