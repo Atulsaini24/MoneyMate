@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Mail, User as UserIcon, ShieldCheck, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
+import { firebaseSync } from '@/lib/firebaseSync';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -125,12 +126,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <span>Real-time Firestore synchronization active. Ledger changes automatically sync to your cloud vault.</span>
               </div>
 
-              <button
-                onClick={handleSignOut}
-                className="w-full py-2.5 rounded-xl bg-[#17171B] border border-[#D98282]/30 text-[#D98282] hover:bg-[#D98282]/10 text-xs font-semibold uppercase tracking-wider transition-colors active:scale-95"
-              >
-                Sign Out from Cloud
-              </button>
+              <div className="pt-2 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      showToast('Testing database write...', 'info');
+                      await firebaseSync.saveTransaction(user.uid, {
+                        id: 'tx_ping_' + Date.now(),
+                        type: 'income',
+                        amount: 1,
+                        description: 'Cloud Connection Verification Ping',
+                        category: 'Others',
+                        date: new Date().toISOString(),
+                        paymentMethod: 'Other',
+                        createdAt: new Date().toISOString(),
+                      });
+                      showToast('Database write confirmed! Refresh Firebase Console.', 'success');
+                    } catch (err: any) {
+                      console.error('Write failed:', err);
+                      showToast('Database write error: ' + (err.message || 'Check Firestore rules'), 'error');
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+                >
+                  Verify & Push Test Record to Firestore
+                </button>
+
+                <button
+                  onClick={handleSignOut}
+                  className="w-full py-2.5 rounded-xl bg-[#17171B] border border-[#D98282]/30 text-[#D98282] hover:bg-[#D98282]/10 text-xs font-semibold uppercase tracking-wider transition-colors active:scale-95"
+                >
+                  Sign Out from Cloud
+                </button>
+              </div>
             </div>
           ) : !isConfigured ? (
             /* Firebase not configured banner */

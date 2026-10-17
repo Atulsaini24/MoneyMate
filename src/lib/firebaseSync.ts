@@ -16,7 +16,10 @@ export const firebaseSync = {
     return onSnapshot(ref, (snapshot) => {
       const items: Transaction[] = [];
       snapshot.forEach((doc) => items.push(doc.data() as Transaction));
+      console.log('[Firestore] Received transactions from cloud:', items.length);
       onUpdate(items);
+    }, (error) => {
+      console.error('[Firestore Error] Transactions subscription failed:', error);
     });
   },
 

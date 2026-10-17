@@ -24,6 +24,7 @@ const app = isFirebaseConfigured
   : null;
 
 export const auth = app ? getAuth(app) : null;
+// Automatically handles standard (default) database or explicit default database instance
 export const db = app ? getFirestore(app) : null;
 export const googleProvider = new GoogleAuthProvider();
 export default app;
