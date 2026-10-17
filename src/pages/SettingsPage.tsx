@@ -2,12 +2,11 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, DollarSign, Sparkles, Moon, Sun, 
-  RotateCcw, Download, Upload, Check, Settings,
+  Download, Upload, Check, Settings,
   Calendar, Compass, Crown, Cloud, CloudCheck, ShieldCheck 
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { OnboardingTourModal } from '@/components/shared/OnboardingTourModal';
 import { AuthModal } from '@/components/shared/AuthModal';
 import { MoneyMateLogo } from '@/components/shared/MoneyMateLogo';
@@ -24,12 +23,11 @@ const CURRENCIES = [
 export const SettingsPage: React.FC = () => {
   const { 
     settings, updateSettings, exportData, importData, 
-    resetData, showToast, isCloudSynced 
+    showToast, isCloudSynced 
   } = useApp();
   const { user } = useAuth();
 
   const [name, setName] = useState(settings.name);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -324,7 +322,7 @@ export const SettingsPage: React.FC = () => {
           Your personal finance ledger is completely client-side and saved locally in browser storage. You can export or restore a backup at any time.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {/* Export button */}
           <button
             onClick={handleExportData}
@@ -349,15 +347,6 @@ export const SettingsPage: React.FC = () => {
             accept=".json"
             className="hidden"
           />
-
-          {/* Reset button */}
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#D98282]/10 border border-[#D98282]/20 text-[#D98282] hover:bg-[#D98282]/20 text-xs font-medium transition-all active:scale-95"
-          >
-            <RotateCcw size={15} />
-            Reset Demo Data
-          </button>
         </div>
       </motion.div>
 
@@ -396,18 +385,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Reset Confirmation */}
-      <ConfirmDialog
-        isOpen={showResetConfirm}
-        onClose={() => setShowResetConfirm(false)}
-        onConfirm={() => {
-          resetData();
-          setShowResetConfirm(false);
-        }}
-        title="Reset All Data"
-        description="Are you sure you want to restore the default sample data? All newly added transactions, budgets, goals, and friend records will be replaced with initial demo records."
-        variant="danger"
-      />
+
 
       {/* Feature Guide Tour Modal */}
       <OnboardingTourModal isOpen={showTour} onClose={() => setShowTour(false)} />

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Transaction, Budget, SavingsGoal, FriendRecord, FriendPayment, UserSettings } from '@/types';
-import { seedTransactions, seedBudgets, seedGoals, seedFriends, defaultSettings } from '@/data/seed';
+import { defaultSettings } from '@/data/seed';
 import { generateId, getCurrentMonth, getMonthYear } from '@/lib/utils';
 import { firebaseSync } from '@/lib/firebaseSync';
 import { mongoSync } from '@/lib/mongoSync';
@@ -406,16 +406,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [userId, showToast]);
 
   const resetData = useCallback(() => {
-    setState({
-      transactions: seedTransactions,
-      budgets: seedBudgets,
-      goals: seedGoals,
-      friends: seedFriends,
-      settings: defaultSettings,
+    setState(s => ({
+      transactions: [],
+      budgets: [],
+      goals: [],
+      friends: [],
+      settings: s.settings,
       toasts: [],
-    });
-    showToast('Default sample data restored!', 'info');
-  }, [showToast]);
+    }));
+    if (userId) {
+      mongoSync.saveUserLedger(userId, {
+        transactions: [],
+        budgets: [],
+        goals: [],
+        friends: [],
+        settings: state.settings,
+      });
+    }
+    showToast('Ledger wiped clean! 0 records remaining.', 'info');
+  }, [userId, state.settings, showToast]);
 
   const exportData = useCallback((): string => {
     return JSON.stringify({
