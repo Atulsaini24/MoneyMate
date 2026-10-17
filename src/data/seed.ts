@@ -81,7 +81,7 @@ export const seedFriends: FriendRecord[] = [
 ];
 
 export const defaultSettings: UserSettings = {
-  name: 'Atul',
+  name: 'Investor',
   currency: 'INR',
   currencySymbol: '₹',
   dateFormat: 'DD/MM/YYYY',

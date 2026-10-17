@@ -123,6 +123,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!userId) return;
 
+    // Automatically derive display name from Google Auth or email prefix (e.g. 'pro' from pro662115@gmail.com)
+    const derivedName = user?.displayName?.trim() || 
+      (user?.email ? user.email.split('@')[0] : 'Investor');
+
     // 1. Fetch complete ledger from MongoDB Atlas
     mongoSync.fetchUserLedger(userId).then(cloudData => {
       if (cloudData && (cloudData.transactions.length > 0 || cloudData.budgets.length > 0 || cloudData.goals.length > 0)) {
@@ -133,7 +137,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           budgets: cloudData.budgets,
           goals: cloudData.goals,
           friends: cloudData.friends,
-          settings: cloudData.settings || s.settings,
+          settings: {
+            ...(cloudData.settings || s.settings),
+            name: cloudData.settings?.name && cloudData.settings.name !== 'Atul' && cloudData.settings.name !== 'Investor'
+              ? cloudData.settings.name 
+              : derivedName,
+          },
+        }));
+      } else {
+        // If new user or empty settings, initialize with their real name / email prefix
+        setState(s => ({
+          ...s,
+          settings: {
+            ...s.settings,
+            name: derivedName
+          }
         }));
       }
     });
