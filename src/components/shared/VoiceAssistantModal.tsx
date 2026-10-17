@@ -1,34 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Sparkles, Volume2, X, Check, Globe, AlertCircle, ArrowRight } from 'lucide-react';
+import { Mic, MicOff, Sparkles, X, Check, AlertCircle, ArrowRight, Wallet, PiggyBank } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { parseVoiceInput, ParsedVoiceCommand } from '@/lib/voiceParser';
 import { PaymentSuccessOverlay } from '@/components/shared/PaymentSuccessOverlay';
+import { getCurrentMonth } from '@/lib/utils';
 
 interface VoiceAssistantModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Available speech recognition languages
 const SUPPORTED_LANGUAGES = [
-  { code: 'en-IN', label: 'English (India)' },
   { code: 'hi-IN', label: 'Hindi (हिन्दी)' },
   { code: 'pa-IN', label: 'Punjabi (ਪੰਜਾਬੀ)' },
+  { code: 'en-IN', label: 'English (India)' },
   { code: 'en-US', label: 'English (US)' },
 ];
 
 export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen, onClose }) => {
-  const { addTransaction, settings, showToast } = useApp();
+  const { addTransaction, addBudget, settings, showToast } = useApp();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [selectedLang, setSelectedLang] = useState('hi-IN');
   const [parsedResult, setParsedResult] = useState<ParsedVoiceCommand | null>(null);
+  const [manualInput, setManualInput] = useState('');
+  const [isManualMode, setIsManualMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSupported, setIsSupported] = useState(true);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const recognitionRef = useRef<any>(null);
+  const silenceTimerRef = useRef<any>(null);
+  const countdownIntervalRef = useRef<any>(null);
+  const lastParsedRef = useRef<ParsedVoiceCommand | null>(null);
+
+  // Keep lastParsedRef updated
+  useEffect(() => {
+    lastParsedRef.current = parsedResult;
+  }, [parsedResult]);
 
   // Check Web Speech API support
   useEffect(() => {
@@ -38,28 +49,101 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     }
   }, []);
 
-  // Initialize and manage recognition instance
+  // Clear timers helper
+  const clearTimers = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
+  };
+
+  // Auto-confirm logic when silence is detected after sentence completion
+  const triggerAutoConfirm = (parsed: ParsedVoiceCommand) => {
+    clearTimers();
+    let timeLeft = 2; // 2 seconds countdown
+    setCountdown(timeLeft);
+
+    countdownIntervalRef.current = setInterval(() => {
+      timeLeft -= 1;
+      if (timeLeft <= 0) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        setCountdown(null);
+        executeEntry(parsed);
+      } else {
+        setCountdown(timeLeft);
+      }
+    }, 1000);
+  };
+
+  const executeEntry = (parsed: ParsedVoiceCommand) => {
+    if (!parsed || !parsed.amount) return;
+
+    if (parsed.action === 'add_budget') {
+      addBudget({
+        category: parsed.category,
+        limit: parsed.amount,
+        month: getCurrentMonth(),
+        alertThreshold: 80,
+      });
+      showToast(`Budget for ${parsed.category} set to ${settings.currencySymbol}${parsed.amount}`, 'success');
+    } else {
+      addTransaction({
+        type: parsed.type,
+        amount: parsed.amount,
+        description: parsed.description,
+        category: parsed.category,
+        paymentMethod: parsed.paymentMethod,
+        date: new Date().toISOString(),
+        notes: `Voice log: "${parsed.rawText}"`,
+      });
+    }
+
+    // Audio confirmation chime
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const text = `${parsed.category} ${parsed.action === 'add_budget' ? 'budget' : 'entry'} of ${settings.currencySymbol} ${parsed.amount} authorized.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // Silent fallback
+      }
+    }
+
+    stopListening();
+    setShowSuccessOverlay(true);
+  };
+
   const startListening = () => {
+    clearTimers();
     setErrorMsg('');
     setTranscript('');
     setParsedResult(null);
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setErrorMsg('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      setIsSupported(false);
+      setIsManualMode(true);
       return;
     }
 
     try {
       if (recognitionRef.current) {
-        recognitionRef.current.abort();
+        try { recognitionRef.current.abort(); } catch {}
       }
 
       const recognition = new SpeechRecognition();
       recognition.lang = selectedLang;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
-      recognition.continuous = false;
+      recognition.continuous = true;
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -73,19 +157,30 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
         }
         setTranscript(current);
 
-        // Real-time parsing of interim or final result
         if (current.trim()) {
           const parsed = parseVoiceInput(current);
           setParsedResult(parsed);
+
+          // If a valid amount is parsed, start the auto-confirm countdown upon pause
+          if (parsed.amount && parsed.amount > 0) {
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = setTimeout(() => {
+              triggerAutoConfirm(parsed);
+            }, 1200); // 1.2s pause triggers countdown
+          }
         }
       };
 
       recognition.onerror = (event: any) => {
-        console.warn('Voice recognition error:', event.error);
-        if (event.error !== 'no-speech') {
-          setErrorMsg(`Microphone error: ${event.error}`);
+        console.warn('Voice recognition note:', event.error);
+        // Ignore aborted or no-speech events so ugly error messages do not appear
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          setErrorMsg(`Microphone: ${event.error}. You can also type below.`);
         }
-        setIsListening(false);
+        if (event.error === 'not-allowed') {
+          setIsListening(false);
+          setIsManualMode(true);
+        }
       };
 
       recognition.onend = () => {
@@ -95,75 +190,69 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err: any) {
-      console.error('Failed to start speech recognition:', err);
-      setErrorMsg('Could not activate microphone. Check browser permissions.');
+      console.warn('Speech recognition init error:', err);
       setIsListening(false);
+      setIsManualMode(true);
     }
   };
 
   const stopListening = () => {
+    clearTimers();
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try { recognitionRef.current.stop(); } catch {}
     }
     setIsListening(false);
   };
 
-  // Auto-start listening when modal opens
+  // Toggle listening
+  const handleMicClick = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // Handle manual keyboard submission fallback
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualInput.trim()) return;
+    const parsed = parseVoiceInput(manualInput.trim());
+    if (parsed.amount) {
+      setParsedResult(parsed);
+      executeEntry(parsed);
+    } else {
+      showToast('Could not detect an amount. E.g. "10$ on tea"', 'error');
+    }
+  };
+
+  // Handle immediate manual confirmation
+  const handleManualConfirm = () => {
+    clearTimers();
+    if (parsedResult && parsedResult.amount) {
+      executeEntry(parsedResult);
+    }
+  };
+
+  // Modal lifecycle
   useEffect(() => {
     if (isOpen) {
-      setErrorMsg('');
+      setIsManualMode(false);
       setTranscript('');
+      setManualInput('');
       setParsedResult(null);
-      // Small timeout to allow animation to mount
+      setErrorMsg('');
       const t = setTimeout(() => {
         startListening();
-      }, 300);
+      }, 250);
       return () => clearTimeout(t);
     } else {
       stopListening();
+      clearTimers();
     }
   }, [isOpen, selectedLang]);
 
-  // Voice confirmation text-to-speech feedback
-  const speakFeedback = (text: string) => {
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        // Fallback silently if audio blocked
-      }
-    }
-  };
-
-  const handleConfirmAdd = () => {
-    if (!parsedResult || !parsedResult.amount) {
-      showToast('Please specify a valid amount', 'error');
-      return;
-    }
-
-    addTransaction({
-      type: parsedResult.type,
-      amount: parsedResult.amount,
-      description: parsedResult.description,
-      category: parsedResult.category,
-      paymentMethod: parsedResult.paymentMethod,
-      date: new Date().toISOString(),
-      notes: `Voice log: "${parsedResult.rawText}"`,
-    });
-
-    // Provide friendly audio feedback
-    const feedbackText = `${parsedResult.category} entry of ${settings.currencySymbol} ${parsedResult.amount} confirmed.`;
-    speakFeedback(feedbackText);
-
-    // Show full-screen green payment success animation
-    setShowSuccessOverlay(true);
-  };
-
-  const handleSuccessOverlayComplete = () => {
+  const handleSuccessComplete = () => {
     setShowSuccessOverlay(false);
     onClose();
   };
@@ -171,7 +260,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 md:p-4">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -183,178 +272,184 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            initial={{ opacity: 0, scale: 0.94, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="relative z-10 w-full max-w-lg bg-[#141418] border border-[#D6BC86]/30 rounded-3xl p-6 md:p-8 shadow-2xl overflow-hidden"
+            exit={{ opacity: 0, scale: 0.94, y: 15 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 360 }}
+            className="relative z-10 w-full max-w-md bg-[#141418] border border-[rgba(214,188,134,0.25)] rounded-3xl p-5 md:p-6 shadow-2xl overflow-hidden"
           >
-            {/* Ambient gold glow aura */}
-            <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-[#D6BC86]/10 rounded-full blur-3xl pointer-events-none" />
-
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-[rgba(214,188,134,0.12)]">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[rgba(214,188,134,0.1)]">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/30">
-                  <Sparkles size={18} />
+                  <Sparkles size={16} />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#F5F1E8] font-serif tracking-tight">
+                  <h3 className="text-sm md:text-base font-bold text-[#F5F1E8] font-serif tracking-tight">
                     MoneyMate Voice AI
                   </h3>
-                  <p className="text-[11px] text-[#77736D]">Multilingual Sovereign Ledger Assistant</p>
+                  <p className="text-[10px] text-[#77736D]">Hindi • Punjabi • English</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Language Selector */}
-                <div className="relative">
-                  <select
-                    value={selectedLang}
-                    onChange={(e) => setSelectedLang(e.target.value)}
-                    className="px-2.5 py-1 text-xs rounded-lg bg-[#19191E] border border-[rgba(214,188,134,0.2)] text-[#D6BC86] focus:outline-none focus:border-[#D6BC86]/60 cursor-pointer"
-                  >
-                    {SUPPORTED_LANGUAGES.map((l) => (
-                      <option key={l.code} value={l.code}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={selectedLang}
+                  onChange={(e) => setSelectedLang(e.target.value)}
+                  className="px-2 py-1 text-[11px] rounded-lg bg-[#19191E] border border-[rgba(214,188,134,0.2)] text-[#D6BC86] focus:outline-none focus:border-[#D6BC86]/60 cursor-pointer"
+                >
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
 
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg text-[#77736D] hover:text-[#F5F1E8] hover:bg-white/5 transition-colors"
+                  className="p-1 rounded-lg text-[#77736D] hover:text-[#F5F1E8] hover:bg-white/5 transition-colors"
                 >
                   <X size={18} />
                 </button>
               </div>
             </div>
 
-            {/* Microphone Interaction Center */}
-            <div className="py-8 flex flex-col items-center justify-center relative">
-              {/* Outer pulsing wave rings */}
+            {/* Microphone Visualizer Center */}
+            <div className="py-6 flex flex-col items-center justify-center relative">
+              {/* Outer pulsing animated rings */}
               {isListening && (
                 <>
                   <motion.div
-                    animate={{ scale: [1, 1.7, 2.2], opacity: [0.6, 0.3, 0] }}
-                    transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
-                    className="absolute w-24 h-24 rounded-full border border-[#D6BC86]/40 pointer-events-none"
+                    animate={{ scale: [1, 1.6, 2], opacity: [0.5, 0.2, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.8, ease: 'easeOut' }}
+                    className="absolute w-20 h-20 rounded-full border border-[#D6BC86]/40 pointer-events-none"
                   />
                   <motion.div
-                    animate={{ scale: [1, 1.4, 1.8], opacity: [0.7, 0.3, 0] }}
-                    transition={{ repeat: Infinity, duration: 2, delay: 0.4, ease: 'easeOut' }}
-                    className="absolute w-24 h-24 rounded-full border border-[#83C9A5]/40 pointer-events-none"
+                    animate={{ scale: [1, 1.3, 1.7], opacity: [0.6, 0.25, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.8, delay: 0.3, ease: 'easeOut' }}
+                    className="absolute w-20 h-20 rounded-full border border-[#83C9A5]/40 pointer-events-none"
                   />
                 </>
               )}
 
-              {/* Main Glowing Mic Button */}
+              {/* Central Glowing Mic Button */}
               <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={isListening ? stopListening : startListening}
-                className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-xl ${
+                whileTap={{ scale: 0.92 }}
+                onClick={handleMicClick}
+                className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl cursor-pointer ${
                   isListening
-                    ? 'bg-gradient-to-tr from-[#83C9A5] to-[#D6BC86] text-[#0B0B0D] shadow-[#83C9A5]/20 ring-4 ring-[#83C9A5]/30'
+                    ? 'bg-gradient-to-tr from-[#83C9A5] to-[#D6BC86] text-[#0B0B0D] shadow-[#83C9A5]/25 ring-4 ring-[#83C9A5]/30'
                     : 'bg-[#1D1D24] text-[#D6BC86] border border-[#D6BC86]/40 hover:border-[#D6BC86]'
                 }`}
               >
                 {isListening ? (
-                  <Mic size={38} className="animate-pulse" />
+                  <Mic size={32} className="animate-pulse" />
                 ) : (
-                  <MicOff size={34} className="text-[#77736D]" />
+                  <MicOff size={28} className="text-[#77736D]" />
                 )}
               </motion.button>
 
-              <span className="text-xs font-medium text-[#B6B0A5] mt-4 tracking-wide">
-                {isListening ? 'Listening... Speak in Hindi, Punjabi, or English' : 'Tap microphone to speak'}
+              <span className="text-xs font-medium text-[#B6B0A5] mt-3 tracking-wide">
+                {isListening ? 'Listening... Speak naturally' : 'Tap microphone to speak'}
               </span>
 
-              {/* Language example prompts carousel */}
-              <div className="mt-3 px-4 py-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.1)] text-center max-w-sm">
-                <span className="text-[11px] text-[#77736D] italic">
-                  💡 e.g. "I spent 10$ on tea" or "mai aaj 10$ kharche chai teh ohnu add krde food ch"
+              {/* Examples Chip */}
+              <div className="mt-2.5 px-3 py-1.5 rounded-xl bg-[#101014] border border-[rgba(214,188,134,0.08)] text-center max-w-xs">
+                <span className="text-[10px] text-[#77736D] italic">
+                  💬 "I spent 10$ on tea" • "10$ kharche chai teh ohnu add krde food ch"
                 </span>
               </div>
             </div>
 
-            {/* Real-time Spoken Transcript Box */}
-            <div className="bg-[#0F0F12] border border-[rgba(214,188,134,0.14)] rounded-2xl p-4 min-h-[72px] flex items-center justify-center text-center">
+            {/* Live Transcript / Input Display */}
+            <div className="bg-[#0F0F12] border border-[rgba(214,188,134,0.12)] rounded-2xl p-3 min-h-[60px] flex items-center justify-center text-center">
               {transcript ? (
-                <p className="text-sm font-medium text-[#F5F1E8] italic tracking-tight">
+                <p className="text-xs md:text-sm font-medium text-[#F5F1E8] italic">
                   "{transcript}"
                 </p>
               ) : (
-                <p className="text-xs text-[#77736D] italic">
-                  {isListening ? 'Say your expense or income naturally...' : 'Your spoken words will appear here'}
+                <p className="text-[11px] text-[#77736D] italic">
+                  {isListening ? 'Speak your expense, income, or budget...' : 'Your spoken words will appear here'}
                 </p>
               )}
             </div>
 
-            {/* Error Message */}
-            {errorMsg && (
-              <div className="mt-3 p-3 rounded-xl bg-[#D98282]/10 border border-[#D98282]/30 flex items-center gap-2 text-xs text-[#D98282]">
-                <AlertCircle size={15} />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {/* Parsed Result Preview Card */}
+            {/* Auto-Confirm Detected Transaction Card */}
             {parsedResult && parsedResult.amount ? (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-4 rounded-2xl bg-[#1A1A22] border border-[#D6BC86]/35 space-y-3"
+                className="mt-3 p-3.5 rounded-2xl bg-[#191921] border border-[#D6BC86]/40 space-y-2.5"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-[#D6BC86]">
-                    Detected Transaction
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#D6BC86] flex items-center gap-1.5">
+                    {parsedResult.action === 'add_budget' ? <PiggyBank size={14} /> : <Wallet size={14} />}
+                    {parsedResult.action === 'add_budget' ? 'Budget Detected' : 'Outflow Detected'}
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-[#83C9A5]/15 text-[#83C9A5] border border-[#83C9A5]/30">
-                    {parsedResult.type}
-                  </span>
+                  {countdown !== null && (
+                    <span className="text-[10px] font-bold text-[#83C9A5] animate-pulse">
+                      Auto-adding in {countdown}s...
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-2xl font-bold text-[#F5F1E8]">
-                      {settings.currencySymbol}
-                      {parsedResult.amount.toLocaleString()}
+                    <div className="text-xl md:text-2xl font-bold text-[#F5F1E8]">
+                      {settings.currencySymbol}{parsedResult.amount.toLocaleString()}
                     </div>
-                    <div className="text-xs text-[#B6B0A5] font-medium mt-0.5">
-                      {parsedResult.description} • {parsedResult.category}
+                    <div className="text-[11px] text-[#B6B0A5] font-medium">
+                      {parsedResult.description} • <span className="text-[#D6BC86]">{parsedResult.category}</span>
                     </div>
                   </div>
 
                   <button
-                    onClick={handleConfirmAdd}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
+                    onClick={handleManualConfirm}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-[11px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
                   >
-                    <Check size={15} strokeWidth={2.5} />
-                    Confirm
+                    <Check size={14} strokeWidth={2.5} />
+                    Confirm Now
                   </button>
                 </div>
               </motion.div>
             ) : null}
 
-            {/* Fallback if no speech recognized */}
-            {!isSupported && (
-              <div className="mt-4 p-3 rounded-xl bg-[#D98282]/15 border border-[#D98282]/30 text-xs text-[#D98282]">
-                Your current browser does not support Web Speech Recognition. Please try Google Chrome or Safari.
+            {/* Non-intrusive Manual Fallback Text Input */}
+            <form onSubmit={handleManualSubmit} className="mt-3 flex items-center gap-2">
+              <input
+                type="text"
+                placeholder='Or type e.g. "10$ tea in food"'
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                className="flex-1 px-3.5 py-2 rounded-xl bg-[#0F0F12] border border-[rgba(214,188,134,0.12)] text-xs text-[#F5F1E8] placeholder:text-[#55524E] focus:outline-none focus:border-[#D6BC86]/50"
+              />
+              <button
+                type="submit"
+                className="px-3 py-2 rounded-xl bg-[#1A1A22] border border-[rgba(214,188,134,0.2)] text-[#D6BC86] hover:text-[#F5F1E8] text-xs font-semibold active:scale-95 transition-all"
+              >
+                <ArrowRight size={14} />
+              </button>
+            </form>
+
+            {/* Error Message if critical */}
+            {errorMsg && (
+              <div className="mt-2.5 p-2 rounded-xl bg-[#D98282]/10 border border-[#D98282]/25 flex items-center gap-2 text-[11px] text-[#D98282]">
+                <AlertCircle size={14} />
+                <span>{errorMsg}</span>
               </div>
             )}
           </motion.div>
         </div>
       )}
 
-      {/* Animated Green Payment Success Screen */}
+      {/* Full-screen Green Payment Success Animation */}
       <PaymentSuccessOverlay
         isOpen={showSuccessOverlay}
         amount={parsedResult?.amount || 0}
         type={parsedResult?.type || 'expense'}
         description={parsedResult?.description || ''}
         currencySymbol={settings.currencySymbol}
-        onComplete={handleSuccessOverlayComplete}
+        onComplete={handleSuccessComplete}
       />
     </AnimatePresence>
   );

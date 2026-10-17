@@ -1,26 +1,26 @@
 // Multilingual Natural Language Parsing for MoneyMate Voice Assistant
-// Supports English, Hindi, Punjabi, Hinglish, and mixed phrasing
+// Robust parsing for English, Hindi, Punjabi, and mixed Hinglish/Punglish
 
 export interface ParsedVoiceCommand {
-  action: 'add_transaction' | 'check_balance' | 'unknown';
+  action: 'add_transaction' | 'add_budget' | 'unknown';
   type: 'expense' | 'income' | 'transfer';
   amount?: number;
   description: string;
   category: string;
   paymentMethod: string;
   rawText: string;
-  languageDetected?: string;
+  targetBudgetMonth?: string;
   confidence: number;
 }
 
 // Category keyword mappings across English, Hindi, Punjabi, Hinglish
 const CATEGORY_MAP: Record<string, string[]> = {
   'Food & Dining': [
-    'tea', 'chai', 'cha', 'coffee', 'food', 'khana', 'lunch', 'dinner', 'breakfast',
-    'snack', 'snacks', 'swiggy', 'zomato', 'restaurant', 'dhaba', 'pizza', 'burger',
-    'roti', 'sabzi', 'grocery', 'groceries', 'rashan', 'fruits', 'fal', 'milk', 'doodh',
-    'paneer', 'nashta', 'rasoi', 'hotel', 'biryani', 'momo', 'momos', 'samosa', 'maggi',
-    'cafe', 'drinks', 'water', 'sharbat'
+    'tea', 'chai', 'cha', 'chah', 'coffee', 'food', 'khana', 'khana pina', 'lunch',
+    'dinner', 'breakfast', 'snack', 'snacks', 'swiggy', 'zomato', 'restaurant',
+    'dhaba', 'pizza', 'burger', 'roti', 'sabzi', 'grocery', 'groceries', 'rashan',
+    'fruits', 'fal', 'milk', 'doodh', 'paneer', 'nashta', 'rasoi', 'hotel', 'biryani',
+    'momo', 'momos', 'samosa', 'maggi', 'cafe', 'drinks', 'water', 'sharbat'
   ],
   'Shopping': [
     'shopping', 'clothes', 'kapde', 'kapre', 'shoes', 'joota', 'amazon', 'flipkart',
@@ -72,24 +72,32 @@ const WORD_TO_NUMBER: Record<string, number> = {
   'seventy': 70, 'eighty': 80, 'ninety': 90, 'hundred': 100, 'thousand': 1000,
   'lakh': 100000, 'lac': 100000, 'crore': 10000000,
   // Hindi/Punjabi phonetics
-  'ek': 1, 'ikk': 1, 'do': 2, 'teen': 3, 'tinn': 3, 'char': 4, 'paanch': 5, 'panj': 5,
-  'che': 6, 'chhe': 6, 'saat': 7, 'sat': 7, 'aath': 8, 'ath': 8, 'nau': 9, 'das': 10,
-  'pandrah': 15, 'pandran': 15, 'bees': 20, 'veeh': 20, 'pachees': 25, 'pachhi': 25,
-  'tees': 30, 'tee': 30, 'chaalis': 40, 'chali': 40, 'pachaas': 50, 'panjah': 50,
-  'sau': 100, 'hazaar': 1000, 'hazar': 1000,
+  'ek': 1, 'ikk': 1, 'ik': 1, 'do': 2, 'teen': 3, 'tinn': 3, 'tin': 3, 'char': 4,
+  'paanch': 5, 'panj': 5, 'che': 6, 'chhe': 6, 'saat': 7, 'sat': 7, 'aath': 8, 'ath': 8,
+  'nau': 9, 'das': 10, 'dass': 10, 'gyarah': 11, 'barah': 12, 'terah': 13, 'chaudah': 14,
+  'pandrah': 15, 'pandran': 15, 'solah': 16, 'satrah': 17, 'atharah': 18, 'unnis': 19,
+  'bees': 20, 'veeh': 20, 'vi': 20, 'pachees': 25, 'pachhi': 25, 'tees': 30, 'tee': 30,
+  'chaalis': 40, 'chali': 40, 'pachaas': 50, 'panjah': 50, 'sau': 100, 'so': 100,
+  'hazaar': 1000, 'hazar': 1000
 };
 
 export function parseVoiceInput(text: string): ParsedVoiceCommand {
   const clean = text.toLowerCase().trim();
-  
-  // 1. Detect Intent: Income vs Expense vs Transfer
-  const isIncome = /\b(received|got|earned|credited|aaye|aaya|mili|mile|labhe|kamaye|income|salary)\b/i.test(clean);
+
+  // 1. Check for Explicit Budget Setting Command:
+  // e.g. "set budget 5000 for food", "add budget 1000 for shopping", "food ka budget 5000 rkho"
+  const isBudgetCommand = /\b(budget|set budget|add budget|limit)\b/i.test(clean) &&
+    !/\b(kharche|spent|spend|paid|kharcha|diya|diye)\b/i.test(clean);
+
+  // 2. Detect Intent: Income vs Expense vs Transfer
+  const isIncome = /\b(received|got|earned|credited|aaye|aaya|mili|mile|labhe|kamaye|income|salary|tankhwah)\b/i.test(clean);
   const type: 'expense' | 'income' | 'transfer' = isIncome ? 'income' : 'expense';
 
-  // 2. Extract Amount
-  // Matches "$10", "10$", "10 dollars", "₹500", "500 rs", "500 rupaye", "500 rupeye", "500 rkhe", "10"
+  // 3. Extract Amount
+  // Matches "$10", "10$", "10 dollars", "₹500", "500 rs", "500 rupaye", "500 rupeye", "10"
   let amount: number | undefined;
 
+  // First regex looks for digits
   const numPattern = /(?:[\$₹£€]|rs\.?|inr|rupees|rupaye|dollars?)?\s*(\d+(?:\.\d+)?)\s*(?:[\$₹£€]|rs\.?|inr|rupees|rupaye|dollars?|bucks)?/i;
   const match = clean.match(numPattern);
 
@@ -100,9 +108,9 @@ export function parseVoiceInput(text: string): ParsedVoiceCommand {
     }
   }
 
-  // Fallback: check phonetic number words
+  // Fallback: search phonetic number words
   if (!amount) {
-    const words = clean.split(/\s+/);
+    const words = clean.split(/[\s,]+/);
     for (const w of words) {
       if (WORD_TO_NUMBER[w] !== undefined && WORD_TO_NUMBER[w] > 0) {
         amount = WORD_TO_NUMBER[w];
@@ -111,13 +119,12 @@ export function parseVoiceInput(text: string): ParsedVoiceCommand {
     }
   }
 
-  // 3. Match Category
+  // 4. Match Category across English, Hindi, and Punjabi
   let category = type === 'income' ? 'Salary' : 'Food & Dining';
   let matchedKeyword = '';
 
   for (const [cat, keywords] of Object.entries(CATEGORY_MAP)) {
     for (const kw of keywords) {
-      // Look for whole-word or substring match
       const regex = new RegExp(`\\b${kw}\\b`, 'i');
       if (regex.test(clean)) {
         category = cat;
@@ -128,24 +135,22 @@ export function parseVoiceInput(text: string): ParsedVoiceCommand {
     if (matchedKeyword) break;
   }
 
-  // 4. Extract Description
-  // Generate a clean description from the spoken sentence
+  // 5. Extract Description
   let description = '';
   if (matchedKeyword) {
-    // Capitalize matched item (e.g. "Chai", "Coffee", "Uber")
     description = matchedKeyword.charAt(0).toUpperCase() + matchedKeyword.slice(1);
   } else {
-    // Fallback: strip numbers and common filler words to find subject
+    // Strip common filler words
     const filtered = clean
       .replace(/(?:[\$₹£€]|rs\.?|inr|rupees|rupaye|dollars?)\s*\d+(?:\.\d+)?/gi, '')
       .replace(/\d+(?:\.\d+)?/g, '')
-      .replace(/\b(i|spent|spend|on|add|this|in|to|mai|aaj|kharche|teh|ohnu|krde|ch|ka|ke|liye|me|diya|mera|mere)\b/gi, '')
+      .replace(/\b(i|spent|spend|on|add|this|in|to|mai|me|aaj|kharche|kharcha|teh|ohnu|krde|ch|ka|ke|liye|diya|diye|mera|mere|nu)\b/gi, '')
       .trim();
     description = filtered ? filtered.slice(0, 30) : (type === 'income' ? 'Income' : 'General Outflow');
     description = description.charAt(0).toUpperCase() + description.slice(1);
   }
 
-  // 5. Payment Method Detection
+  // 6. Payment Method Detection
   let paymentMethod = 'UPI';
   if (/\b(cash|nakad|rokar)\b/i.test(clean)) {
     paymentMethod = 'Cash';
@@ -156,10 +161,10 @@ export function parseVoiceInput(text: string): ParsedVoiceCommand {
   }
 
   return {
-    action: amount ? 'add_transaction' : 'unknown',
+    action: isBudgetCommand ? 'add_budget' : (amount ? 'add_transaction' : 'unknown'),
     type,
     amount,
-    description: description || 'Spoken Ledger Entry',
+    description: description || 'Voice Entry',
     category,
     paymentMethod,
     rawText: text,
