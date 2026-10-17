@@ -6,6 +6,10 @@ export interface UserLedgerData {
   goals: SavingsGoal[];
   friends: FriendRecord[];
   settings?: UserSettings | null;
+  userInfo?: {
+    email?: string | null;
+    displayName?: string | null;
+  };
 }
 
 export const mongoSync = {

@@ -18,7 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const client = await clientPromise;
     const db = client.db('moneymate');
-    const collection = db.collection('user_ledgers');
+    const ledgersCol = db.collection('user_ledgers');
+    const usersCol = db.collection('users');
 
     const { userId } = req.query;
 
@@ -26,9 +27,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing userId parameter' });
     }
 
-    // GET: Retrieve user financial state
+    // GET: Retrieve only this specific user's financial ledger
     if (req.method === 'GET') {
-      const record = await collection.findOne({ userId });
+      const record = await ledgersCol.findOne({ userId });
       if (!record) {
         return res.status(200).json({
           transactions: [],
@@ -48,9 +49,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // POST: Save or synchronize entire user ledger
+    // POST: Save or synchronize this specific user's data + profile info
     if (req.method === 'POST') {
       const payload = req.body || {};
+
+      // 1. Save / Update User Profile Record
+      if (payload.userInfo) {
+        await usersCol.updateOne(
+          { userId },
+          { 
+            $set: {
+              userId,
+              email: payload.userInfo.email || null,
+              name: payload.userInfo.displayName || payload.userInfo.name || 'Anonymous',
+              lastActiveAt: new Date().toISOString()
+            },
+            $setOnInsert: {
+              createdAt: new Date().toISOString()
+            }
+          },
+          { upsert: true }
+        );
+      }
+
+      // 2. Save / Update User's Isolated Ledger Data
       const updateData = {
         userId,
         transactions: payload.transactions || [],
@@ -61,13 +83,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updatedAt: new Date().toISOString()
       };
 
-      await collection.updateOne(
+      await ledgersCol.updateOne(
         { userId },
         { $set: updateData },
         { upsert: true }
       );
 
-      return res.status(200).json({ success: true, message: 'Synchronized with MongoDB Atlas' });
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Synchronized with MongoDB Atlas' 
+      });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

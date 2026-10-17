@@ -177,10 +177,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         goals: state.goals,
         friends: state.friends,
         settings: state.settings,
+        userInfo: {
+          email: user?.email || null,
+          displayName: user?.displayName || state.settings?.name || 'Investor'
+        }
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [userId, state.transactions, state.budgets, state.goals, state.friends, state.settings]);
+  }, [userId, user?.email, user?.displayName, state.transactions, state.budgets, state.goals, state.friends, state.settings]);
 
   // Transactions
   const addTransaction = useCallback((t: Omit<Transaction, 'id' | 'createdAt'>) => {
