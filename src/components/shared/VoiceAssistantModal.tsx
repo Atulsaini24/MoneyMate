@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Sparkles, X, Check, AlertCircle, ArrowRight, Wallet, PiggyBank } from 'lucide-react';
+import { Mic, MicOff, Sparkles, X, Check, ArrowRight, Wallet, PiggyBank, Globe, ChevronDown } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { parseVoiceInput, ParsedVoiceCommand } from '@/lib/voiceParser';
 import { PaymentSuccessOverlay } from '@/components/shared/PaymentSuccessOverlay';
@@ -12,10 +12,10 @@ interface VoiceAssistantModalProps {
 }
 
 const SUPPORTED_LANGUAGES = [
-  { code: 'hi-IN', label: 'Hindi (हिन्दी)' },
-  { code: 'pa-IN', label: 'Punjabi (ਪੰਜਾਬੀ)' },
-  { code: 'en-IN', label: 'English (India)' },
-  { code: 'en-US', label: 'English (US)' },
+  { code: 'hi-IN', label: 'Hindi (हिन्दी / Hinglish)', flag: '🇮🇳' },
+  { code: 'pa-IN', label: 'Punjabi (ਪੰਜਾਬੀ)', flag: '🇮🇳' },
+  { code: 'en-IN', label: 'English (India)', flag: '🇮🇳' },
+  { code: 'en-US', label: 'English (US)', flag: '🇺🇸' },
 ];
 
 export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen, onClose }) => {
@@ -25,31 +25,17 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
   const [selectedLang, setSelectedLang] = useState('hi-IN');
   const [parsedResult, setParsedResult] = useState<ParsedVoiceCommand | null>(null);
   const [manualInput, setManualInput] = useState('');
-  const [isManualMode, setIsManualMode] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [isSupported, setIsSupported] = useState(true);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [audioLevel, setAudioLevel] = useState<number[]>([12, 24, 18, 32, 16]);
 
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
   const countdownIntervalRef = useRef<any>(null);
-  const lastParsedRef = useRef<ParsedVoiceCommand | null>(null);
+  const audioIntervalRef = useRef<any>(null);
+  const isManuallyStoppedRef = useRef(false);
 
-  // Keep lastParsedRef updated
-  useEffect(() => {
-    lastParsedRef.current = parsedResult;
-  }, [parsedResult]);
-
-  // Check Web Speech API support
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setIsSupported(false);
-    }
-  }, []);
-
-  // Clear timers helper
+  // Clear timers
   const clearTimers = () => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -62,25 +48,28 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     setCountdown(null);
   };
 
-  // Auto-confirm logic when silence is detected after sentence completion
-  const triggerAutoConfirm = (parsed: ParsedVoiceCommand) => {
-    clearTimers();
-    let timeLeft = 2; // 2 seconds countdown
-    setCountdown(timeLeft);
+  // Animate audio waveform bars when listening
+  useEffect(() => {
+    if (isListening) {
+      audioIntervalRef.current = setInterval(() => {
+        setAudioLevel([
+          Math.floor(Math.random() * 28) + 8,
+          Math.floor(Math.random() * 36) + 12,
+          Math.floor(Math.random() * 48) + 16,
+          Math.floor(Math.random() * 34) + 10,
+          Math.floor(Math.random() * 26) + 8,
+        ]);
+      }, 120);
+    } else {
+      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
+      setAudioLevel([8, 12, 16, 12, 8]);
+    }
+    return () => {
+      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
+    };
+  }, [isListening]);
 
-    countdownIntervalRef.current = setInterval(() => {
-      timeLeft -= 1;
-      if (timeLeft <= 0) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-        setCountdown(null);
-        executeEntry(parsed);
-      } else {
-        setCountdown(timeLeft);
-      }
-    }, 1000);
-  };
-
+  // Execute entry
   const executeEntry = (parsed: ParsedVoiceCommand) => {
     if (!parsed || !parsed.amount) return;
 
@@ -100,11 +89,11 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
         category: parsed.category,
         paymentMethod: parsed.paymentMethod,
         date: new Date().toISOString(),
-        notes: `Voice log: "${parsed.rawText}"`,
+        notes: `Voice: "${parsed.rawText}"`,
       });
     }
 
-    // Audio confirmation chime
+    // Audio chime feedback
     if ('speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
@@ -112,25 +101,42 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.05;
         window.speechSynthesis.speak(utterance);
-      } catch {
-        // Silent fallback
-      }
+      } catch {}
     }
 
     stopListening();
     setShowSuccessOverlay(true);
   };
 
-  const startListening = () => {
+  // Auto-confirm logic with countdown
+  const triggerAutoConfirm = (parsed: ParsedVoiceCommand) => {
     clearTimers();
-    setErrorMsg('');
+    let timeLeft = 2;
+    setCountdown(timeLeft);
+
+    countdownIntervalRef.current = setInterval(() => {
+      timeLeft -= 1;
+      if (timeLeft <= 0) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        setCountdown(null);
+        executeEntry(parsed);
+      } else {
+        setCountdown(timeLeft);
+      }
+    }, 1000);
+  };
+
+  // Start speech recognition instance
+  const startListening = () => {
+    isManuallyStoppedRef.current = false;
+    clearTimers();
     setTranscript('');
     setParsedResult(null);
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setIsSupported(false);
-      setIsManualMode(true);
+      showToast('Speech recognition not supported in this browser. You can type below!', 'info');
       return;
     }
 
@@ -141,62 +147,70 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
 
       const recognition = new SpeechRecognition();
       recognition.lang = selectedLang;
+      // continuous=false ensures native end event fires properly on mobile iOS/Android
+      recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-      recognition.continuous = true;
+      recognition.maxAlternatives = 3;
 
       recognition.onstart = () => {
         setIsListening(true);
-        setErrorMsg('');
       };
 
       recognition.onresult = (event: any) => {
-        let current = '';
-        for (let i = 0; i < event.results.length; i++) {
-          current += event.results[i][0].transcript;
-        }
-        setTranscript(current);
+        let interimStr = '';
+        let finalStr = '';
 
-        if (current.trim()) {
-          const parsed = parseVoiceInput(current);
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalStr += res[0].transcript;
+          } else {
+            interimStr += res[0].transcript;
+          }
+        }
+
+        const fullText = (finalStr || interimStr).trim();
+        if (fullText) {
+          setTranscript(fullText);
+          const parsed = parseVoiceInput(fullText);
           setParsedResult(parsed);
 
-          // If a valid amount is parsed, start the auto-confirm countdown upon pause
           if (parsed.amount && parsed.amount > 0) {
             if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
             silenceTimerRef.current = setTimeout(() => {
               triggerAutoConfirm(parsed);
-            }, 1200); // 1.2s pause triggers countdown
+            }, 1000);
           }
         }
       };
 
       recognition.onerror = (event: any) => {
-        console.warn('Voice recognition note:', event.error);
-        // Ignore aborted or no-speech events so ugly error messages do not appear
-        if (event.error !== 'no-speech' && event.error !== 'aborted') {
-          setErrorMsg(`Microphone: ${event.error}. You can also type below.`);
-        }
+        console.log('[SpeechRecognition] notice:', event.error);
         if (event.error === 'not-allowed') {
-          setIsListening(false);
-          setIsManualMode(true);
+          showToast('Please allow microphone permissions to speak', 'error');
         }
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        // If not manually stopped, keep listening active unless auto-confirm is counting down
+        if (!isManuallyStoppedRef.current && isOpen && !parsedResult?.amount) {
+          try {
+            recognition.start();
+          } catch {}
+        }
       };
 
       recognitionRef.current = recognition;
       recognition.start();
-    } catch (err: any) {
-      console.warn('Speech recognition init error:', err);
+    } catch (e) {
+      console.warn('Recognition start exception:', e);
       setIsListening(false);
-      setIsManualMode(true);
     }
   };
 
   const stopListening = () => {
+    isManuallyStoppedRef.current = true;
     clearTimers();
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
@@ -204,7 +218,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     setIsListening(false);
   };
 
-  // Toggle listening
+  // Toggle mic button
   const handleMicClick = () => {
     if (isListening) {
       stopListening();
@@ -213,7 +227,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
     }
   };
 
-  // Handle manual keyboard submission fallback
+  // Manual text input submission
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualInput.trim()) return;
@@ -222,29 +236,20 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
       setParsedResult(parsed);
       executeEntry(parsed);
     } else {
-      showToast('Could not detect an amount. E.g. "10$ on tea"', 'error');
-    }
-  };
-
-  // Handle immediate manual confirmation
-  const handleManualConfirm = () => {
-    clearTimers();
-    if (parsedResult && parsedResult.amount) {
-      executeEntry(parsedResult);
+      showToast('Could not detect amount. E.g. "10$ on tea in food"', 'error');
     }
   };
 
   // Modal lifecycle
   useEffect(() => {
     if (isOpen) {
-      setIsManualMode(false);
       setTranscript('');
       setManualInput('');
       setParsedResult(null);
-      setErrorMsg('');
+      // Wait for user gesture or start if already permitted
       const t = setTimeout(() => {
         startListening();
-      }, 250);
+      }, 200);
       return () => clearTimeout(t);
     } else {
       stopListening();
@@ -260,50 +265,62 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 md:p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          {/* Backdrop with luxury blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="overlay-bg absolute inset-0 backdrop-blur-md"
+            className="overlay-bg absolute inset-0 backdrop-blur-xl bg-black/70"
           />
 
-          {/* Modal Container */}
+          {/* Modal Container: Bottom sheet on mobile, centered card on desktop */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 15 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 360 }}
-            className="relative z-10 w-full max-w-md bg-[#141418] border border-[rgba(214,188,134,0.25)] rounded-3xl p-5 md:p-6 shadow-2xl overflow-hidden"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+            className="relative z-10 w-full sm:max-w-md bg-[#121216] border border-[#D6BC86]/25 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden pb-8 sm:pb-6"
           >
+            {/* Top ambient gold accent bar */}
+            <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#D6BC86] to-transparent opacity-80" />
+
+            {/* Mobile drag bar */}
+            <div className="flex justify-center pt-2.5 pb-1 sm:hidden">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+
             {/* Header */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-[rgba(214,188,134,0.1)]">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/30">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#D6BC86]/25 to-[#D6BC86]/5 border border-[#D6BC86]/30 flex items-center justify-center text-[#D6BC86]">
                   <Sparkles size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm md:text-base font-bold text-[#F5F1E8] font-serif tracking-tight">
+                  <h3 className="text-sm font-bold text-[#F5F1E8] tracking-tight font-serif">
                     MoneyMate Voice AI
                   </h3>
-                  <p className="text-[10px] text-[#77736D]">Hindi • Punjabi • English</p>
+                  <p className="text-[10px] text-[#A39E95]">All Languages • Instant Detection</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <select
-                  value={selectedLang}
-                  onChange={(e) => setSelectedLang(e.target.value)}
-                  className="px-2 py-1 text-[11px] rounded-lg bg-[#19191E] border border-[rgba(214,188,134,0.2)] text-[#D6BC86] focus:outline-none focus:border-[#D6BC86]/60 cursor-pointer"
-                >
-                  {SUPPORTED_LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
+                {/* Language Picker */}
+                <div className="relative flex items-center">
+                  <select
+                    value={selectedLang}
+                    onChange={(e) => setSelectedLang(e.target.value)}
+                    className="appearance-none pl-3 pr-7 py-1 rounded-lg bg-[#18181E] border border-[rgba(214,188,134,0.2)] text-[11px] font-semibold text-[#D6BC86] focus:outline-none focus:border-[#D6BC86]/60 cursor-pointer"
+                  >
+                    {SUPPORTED_LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={11} className="absolute right-2 text-[#D6BC86] pointer-events-none" />
+                </div>
 
                 <button
                   onClick={onClose}
@@ -314,130 +331,132 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
               </div>
             </div>
 
-            {/* Microphone Visualizer Center */}
-            <div className="py-6 flex flex-col items-center justify-center relative">
-              {/* Outer pulsing animated rings */}
-              {isListening && (
-                <>
+            {/* Hero Mic & Waveform Area */}
+            <div className="px-5 pt-6 pb-4 flex flex-col items-center justify-center relative">
+              {/* Pulsing visual glow */}
+              <div className="relative flex items-center justify-center">
+                {isListening && (
                   <motion.div
-                    animate={{ scale: [1, 1.6, 2], opacity: [0.5, 0.2, 0] }}
+                    animate={{ scale: [1, 1.4, 1.7], opacity: [0.6, 0.25, 0] }}
                     transition={{ repeat: Infinity, duration: 1.8, ease: 'easeOut' }}
-                    className="absolute w-20 h-20 rounded-full border border-[#D6BC86]/40 pointer-events-none"
+                    className="absolute w-24 h-24 rounded-full bg-[#D6BC86]/20 pointer-events-none"
                   />
-                  <motion.div
-                    animate={{ scale: [1, 1.3, 1.7], opacity: [0.6, 0.25, 0] }}
-                    transition={{ repeat: Infinity, duration: 1.8, delay: 0.3, ease: 'easeOut' }}
-                    className="absolute w-20 h-20 rounded-full border border-[#83C9A5]/40 pointer-events-none"
-                  />
-                </>
-              )}
-
-              {/* Central Glowing Mic Button */}
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onClick={handleMicClick}
-                className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl cursor-pointer ${
-                  isListening
-                    ? 'bg-gradient-to-tr from-[#83C9A5] to-[#D6BC86] text-[#0B0B0D] shadow-[#83C9A5]/25 ring-4 ring-[#83C9A5]/30'
-                    : 'bg-[#1D1D24] text-[#D6BC86] border border-[#D6BC86]/40 hover:border-[#D6BC86]'
-                }`}
-              >
-                {isListening ? (
-                  <Mic size={32} className="animate-pulse" />
-                ) : (
-                  <MicOff size={28} className="text-[#77736D]" />
                 )}
-              </motion.button>
 
-              <span className="text-xs font-medium text-[#B6B0A5] mt-3 tracking-wide">
-                {isListening ? 'Listening... Speak naturally' : 'Tap microphone to speak'}
-              </span>
+                {/* Main Mic Button */}
+                <motion.button
+                  whileTap={{ scale: 0.92 }}
+                  onClick={handleMicClick}
+                  className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl cursor-pointer ${
+                    isListening
+                      ? 'bg-gradient-to-tr from-[#D6BC86] to-[#E9D8AF] text-[#0B0B0D] shadow-[#D6BC86]/30 ring-4 ring-[#D6BC86]/20'
+                      : 'bg-[#18181E] text-[#D6BC86] border border-[#D6BC86]/40 hover:border-[#D6BC86]'
+                  }`}
+                  aria-label="Toggle Microphone"
+                >
+                  {isListening ? (
+                    <Mic size={32} className="animate-pulse" />
+                  ) : (
+                    <MicOff size={28} className="text-[#77736D]" />
+                  )}
+                </motion.button>
+              </div>
 
-              {/* Examples Chip */}
-              <div className="mt-2.5 px-3 py-1.5 rounded-xl bg-[#101014] border border-[rgba(214,188,134,0.08)] text-center max-w-xs">
-                <span className="text-[10px] text-[#77736D] italic">
-                  💬 "I spent 10$ on tea" • "10$ kharche chai teh ohnu add krde food ch"
+              {/* Status and Audio Level Waveform */}
+              <div className="flex items-center gap-2 mt-4">
+                <span className={`text-xs font-semibold uppercase tracking-wider ${isListening ? 'text-[#D6BC86]' : 'text-[#77736D]'}`}>
+                  {isListening ? 'Listening Live' : 'Tap Mic to Speak'}
                 </span>
+                {isListening && (
+                  <div className="flex items-center gap-1 h-4">
+                    {audioLevel.map((h, i) => (
+                      <motion.div
+                        key={i}
+                        className="w-1 bg-[#D6BC86] rounded-full"
+                        animate={{ height: `${h}px` }}
+                        transition={{ duration: 0.12 }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Spoken Live Transcript Card */}
+              <div className="w-full mt-4 p-3.5 rounded-2xl bg-[#0D0D10] border border-white/[0.08] min-h-[64px] flex items-center justify-center text-center">
+                {transcript ? (
+                  <p className="text-sm font-medium text-[#F5F1E8] tracking-tight italic">
+                    "{transcript}"
+                  </p>
+                ) : (
+                  <div className="text-center space-y-1">
+                    <p className="text-xs text-[#B6B0A5] font-medium">
+                      Speak in Hindi, Punjabi, or English
+                    </p>
+                    <p className="text-[10px] text-[#77736D] italic">
+                      e.g. "I spent 10$ on tea" • "10$ kharche chai teh ohnu add krde food ch"
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Live Transcript / Input Display */}
-            <div className="bg-[#0F0F12] border border-[rgba(214,188,134,0.12)] rounded-2xl p-3 min-h-[60px] flex items-center justify-center text-center">
-              {transcript ? (
-                <p className="text-xs md:text-sm font-medium text-[#F5F1E8] italic">
-                  "{transcript}"
-                </p>
-              ) : (
-                <p className="text-[11px] text-[#77736D] italic">
-                  {isListening ? 'Speak your expense, income, or budget...' : 'Your spoken words will appear here'}
-                </p>
-              )}
-            </div>
-
-            {/* Auto-Confirm Detected Transaction Card */}
+            {/* Parsed Result Auto-Card */}
             {parsedResult && parsedResult.amount ? (
               <motion.div
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-3 p-3.5 rounded-2xl bg-[#191921] border border-[#D6BC86]/40 space-y-2.5"
+                className="mx-5 mb-4 p-4 rounded-2xl bg-gradient-to-br from-[#191922] to-[#141419] border border-[#D6BC86]/40 shadow-lg space-y-2.5"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-[#D6BC86] flex items-center gap-1.5">
                     {parsedResult.action === 'add_budget' ? <PiggyBank size={14} /> : <Wallet size={14} />}
-                    {parsedResult.action === 'add_budget' ? 'Budget Detected' : 'Outflow Detected'}
+                    {parsedResult.action === 'add_budget' ? 'Budget Ready' : 'Outflow Ready'}
                   </span>
                   {countdown !== null && (
-                    <span className="text-[10px] font-bold text-[#83C9A5] animate-pulse">
-                      Auto-adding in {countdown}s...
+                    <span className="text-[11px] font-bold text-[#83C9A5] animate-pulse">
+                      Auto-saving in {countdown}s...
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xl md:text-2xl font-bold text-[#F5F1E8]">
+                    <div className="text-2xl font-bold text-[#F5F1E8] number-display">
                       {settings.currencySymbol}{parsedResult.amount.toLocaleString()}
                     </div>
-                    <div className="text-[11px] text-[#B6B0A5] font-medium">
-                      {parsedResult.description} • <span className="text-[#D6BC86]">{parsedResult.category}</span>
+                    <div className="text-xs text-[#B6B0A5] font-medium mt-0.5">
+                      {parsedResult.description} • <span className="text-[#D6BC86] font-semibold">{parsedResult.category}</span>
                     </div>
                   </div>
 
                   <button
-                    onClick={handleManualConfirm}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-[11px] font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
+                    onClick={() => { clearTimers(); executeEntry(parsedResult); }}
+                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
                   >
                     <Check size={14} strokeWidth={2.5} />
-                    Confirm Now
+                    Confirm
                   </button>
                 </div>
               </motion.div>
             ) : null}
 
-            {/* Non-intrusive Manual Fallback Text Input */}
-            <form onSubmit={handleManualSubmit} className="mt-3 flex items-center gap-2">
+            {/* Quick Type Fallback Field */}
+            <form onSubmit={handleManualSubmit} className="mx-5 flex items-center gap-2">
               <input
                 type="text"
-                placeholder='Or type e.g. "10$ tea in food"'
+                placeholder='Or type e.g. "10$ tea food" / "10$ kharche chai"'
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
-                className="flex-1 px-3.5 py-2 rounded-xl bg-[#0F0F12] border border-[rgba(214,188,134,0.12)] text-xs text-[#F5F1E8] placeholder:text-[#55524E] focus:outline-none focus:border-[#D6BC86]/50"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-[#0D0D10] border border-white/[0.08] text-xs text-[#F5F1E8] placeholder:text-[#66635D] focus:outline-none focus:border-[#D6BC86]/50"
               />
               <button
                 type="submit"
-                className="px-3 py-2 rounded-xl bg-[#1A1A22] border border-[rgba(214,188,134,0.2)] text-[#D6BC86] hover:text-[#F5F1E8] text-xs font-semibold active:scale-95 transition-all"
+                className="p-2.5 rounded-xl bg-[#1D1D26] border border-[#D6BC86]/30 text-[#D6BC86] hover:text-[#F5F1E8] active:scale-95 transition-all cursor-pointer"
+                title="Send command"
               >
-                <ArrowRight size={14} />
+                <ArrowRight size={15} />
               </button>
             </form>
-
-            {/* Error Message if critical */}
-            {errorMsg && (
-              <div className="mt-2.5 p-2 rounded-xl bg-[#D98282]/10 border border-[#D98282]/25 flex items-center gap-2 text-[11px] text-[#D98282]">
-                <AlertCircle size={14} />
-                <span>{errorMsg}</span>
-              </div>
-            )}
           </motion.div>
         </div>
       )}
