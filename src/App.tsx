@@ -18,6 +18,7 @@ import { FriendsPage } from '@/pages/FriendsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 
 import { useAuth } from '@/context/AuthContext';
+import { useApp } from '@/context/AppContext';
 import { LoginPage } from '@/pages/LoginPage';
 
 function ScrollToTop() {
@@ -31,6 +32,17 @@ function ScrollToTop() {
 const AppLayout: React.FC = () => {
   const location = useLocation();
   const { user, loading } = useAuth();
+  const { settings } = useApp();
+
+  // Ensure persistent document-level theme
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settings.theme === 'light') {
+      root.classList.add('light');
+    } else {
+      root.classList.remove('light');
+    }
+  }, [settings.theme]);
 
   if (loading) {
     return (
@@ -52,7 +64,7 @@ const AppLayout: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0B0B0D] text-[#F5F1E8] selection:bg-[#D6BC86]/25 selection:text-[#E9D8AF] antialiased">
+    <div className={`flex min-h-screen ${settings.theme === 'light' ? 'light bg-[#F8F6F0] text-[#17171B]' : 'bg-[#0B0B0D] text-[#F5F1E8]'} selection:bg-[#D6BC86]/25 selection:text-[#E9D8AF] antialiased`}>
       {/* Desktop Sidebar */}
       <AppSidebar />
 

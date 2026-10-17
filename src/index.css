@@ -198,3 +198,76 @@ body {
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
+
+/* ========================================================
+   LUXURY IVORY & CHAMPAGNE LIGHT THEME
+   ======================================================== */
+html.light, body.light, .light {
+  background-color: #F8F6F0 !important;
+  color: #17171B !important;
+}
+
+.light .glass-card {
+  background-color: #FFFFFF !important;
+  border-color: rgba(180, 150, 90, 0.22) !important;
+  box-shadow: 0 10px 30px -10px rgba(180, 150, 90, 0.15), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+
+.light .glass-card:hover {
+  border-color: rgba(180, 150, 90, 0.4) !important;
+  box-shadow: 0 16px 36px -10px rgba(180, 150, 90, 0.22) !important;
+}
+
+.light .glass-card-elevated {
+  background-color: #FFFFFF !important;
+  border-color: rgba(180, 150, 90, 0.28) !important;
+  box-shadow: 0 20px 45px -12px rgba(180, 150, 90, 0.2) !important;
+}
+
+.light header,
+.light aside {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(180, 150, 90, 0.18) !important;
+}
+
+.light .text-\[\#F5F1E8\] {
+  color: #1A1A1F !important;
+}
+
+.light .text-\[\#B6B0A5\] {
+  color: #4A4640 !important;
+}
+
+.light .text-\[\#77736D\] {
+  color: #7A756D !important;
+}
+
+.light .bg-\[\#0B0B0D\] {
+  background-color: #F8F6F0 !important;
+}
+
+.light .bg-\[\#121215\],
+.light .bg-\[\#17171B\],
+.light .bg-\[\#19191D\] {
+  background-color: #F0ECE1 !important;
+}
+
+.light .border-\[rgba\(214\,188\,134\,0\.12\)\],
+.light .border-\[rgba\(214\,188\,134\,0\.16\)\],
+.light .border-\[rgba\(214\,188\,134\,0\.18\)\],
+.light .border-\[rgba\(214\,188\,134\,0\.24\)\] {
+  border-color: rgba(180, 150, 90, 0.25) !important;
+}
+
+.light input,
+.light select,
+.light textarea {
+  background-color: #FFFFFF !important;
+  color: #17171B !important;
+  border-color: rgba(180, 150, 90, 0.25) !important;
+}
+
+.light .overlay-bg {
+  background: rgba(240, 236, 225, 0.8) !important;
+}
+

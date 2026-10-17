@@ -83,6 +83,20 @@ export const DashboardHeader: React.FC = () => {
           >
             <Compass size={15} strokeWidth={1.75} />
           </button>
+          {/* Mobile Theme Toggle with Spring Animation */}
+          <motion.button
+            whileTap={{ scale: 0.85, rotate: 180 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
+            className="p-1.5 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.16)] text-[#D6BC86] shadow-sm flex items-center justify-center transition-colors"
+            aria-label="Toggle theme"
+          >
+            {settings.theme === 'dark' ? (
+              <Moon size={15} strokeWidth={2} className="text-[#D6BC86]" />
+            ) : (
+              <Sun size={15} strokeWidth={2} className="text-[#E5A93C]" />
+            )}
+          </motion.button>
           <button
             onClick={() => navigate('/settings')}
             className="w-7 h-7 rounded-full bg-[#17171B] border border-[rgba(214,188,134,0.25)] flex items-center justify-center text-xs font-semibold text-[#D6BC86] active:scale-95 transition-transform"
@@ -215,18 +229,22 @@ export const DashboardHeader: React.FC = () => {
             <span>Product Tour</span>
           </button>
 
-          {/* Theme toggle */}
-          <button
+          {/* Desktop Theme toggle with Fluid Kinetic Animation */}
+          <motion.button
+            whileTap={{ scale: 0.85, rotate: 180 }}
+            whileHover={{ scale: 1.1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="p-1.5 rounded-lg hover:bg-[#121215] text-[#77736D] hover:text-[#B6B0A5] transition-colors"
+            className="p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.14)] hover:border-[#D6BC86]/40 text-[#D6BC86] transition-colors shadow-sm"
             aria-label="Toggle theme"
+            title={settings.theme === 'dark' ? 'Switch to Ivory Light Theme' : 'Switch to Obsidian Dark Theme'}
           >
             {settings.theme === 'dark' ? (
-              <Moon size={16} strokeWidth={1.75} />
+              <Moon size={16} strokeWidth={2} className="text-[#D6BC86]" />
             ) : (
-              <Sun size={16} strokeWidth={1.75} />
+              <Sun size={16} strokeWidth={2} className="text-[#E5A93C]" />
             )}
-          </button>
+          </motion.button>
 
           {/* Notifications */}
           <button 

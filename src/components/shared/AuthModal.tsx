@@ -4,6 +4,7 @@ import { X, Lock, Mail, User as UserIcon, ShieldCheck, Sparkles, CheckCircle, Al
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
 import { firebaseSync } from '@/lib/firebaseSync';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { user, isConfigured, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut } = useAuth();
   const { showToast } = useApp();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +38,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         showToast('Account created and cloud database linked', 'success');
       }
       onClose();
+      navigate('/');
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Authentication failed. Please check credentials.');
@@ -51,6 +54,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       await signInWithGoogle();
       showToast('Connected with Google Firebase Account', 'success');
       onClose();
+      navigate('/');
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Google sign-in failed.');
