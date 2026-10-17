@@ -92,7 +92,7 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -107,7 +107,7 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
             transition={{ type: 'spring', damping: 30, stiffness: 400 }}
             className="relative z-10 w-full max-w-lg md:mx-4"
           >
-            <div className="bg-[#17171B] md:rounded-3xl rounded-t-3xl border border-[rgba(214,188,134,0.18)] max-h-[92vh] overflow-y-auto shadow-2xl">
+            <div className="bg-[#17171B] md:rounded-3xl rounded-t-3xl border border-[rgba(214,188,134,0.18)] max-h-[88vh] overflow-y-auto shadow-2xl pb-16 md:pb-6">
               {/* Mobile drag handle */}
               <div className="flex justify-center pt-3 md:hidden">
                 <div className="w-10 h-1 rounded-full bg-white/20" />
@@ -244,10 +244,11 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
               </div>
 
               {/* Submit button */}
-              <div className="px-5 pb-6">
+              <div className="px-5 pb-8 pt-2 sticky bottom-0 bg-[#17171B] border-t border-[rgba(214,188,134,0.1)] z-20">
                 <button
+                  type="button"
                   onClick={handleSubmit}
-                  className="w-full py-3 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-semibold text-xs uppercase tracking-wider transition-all shadow-sm active:scale-[0.98]"
+                  className="w-full py-3.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-bold text-xs uppercase tracking-wider transition-all shadow-lg active:scale-[0.98] cursor-pointer"
                 >
                   {editTransaction ? 'Confirm Update' : `Authorize ${typeOptions.find(t => t.value === type)?.label}`}
                 </button>
