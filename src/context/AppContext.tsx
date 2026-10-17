@@ -3,6 +3,7 @@ import { Transaction, Budget, SavingsGoal, FriendRecord, FriendPayment, UserSett
 import { seedTransactions, seedBudgets, seedGoals, seedFriends, defaultSettings } from '@/data/seed';
 import { generateId, getCurrentMonth, getMonthYear } from '@/lib/utils';
 import { firebaseSync } from '@/lib/firebaseSync';
+import { mongoSync } from '@/lib/mongoSync';
 import { useAuth } from '@/context/AuthContext';
 
 interface AppState {
@@ -118,31 +119,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveState(state);
   }, [state.transactions, state.budgets, state.goals, state.friends, state.settings]);
 
-  // Real-time synchronization listeners with Firebase Firestore when logged in
+  // Dual-Cloud Real-time synchronization: MongoDB Atlas + Firestore fallback
   useEffect(() => {
     if (!userId) return;
 
-    // Initial sync of settings from Firestore
-    firebaseSync.getSettings(userId).then(cloudSettings => {
-      if (cloudSettings) {
-        setState(s => ({ ...s, settings: cloudSettings }));
+    // 1. Fetch complete ledger from MongoDB Atlas
+    mongoSync.fetchUserLedger(userId).then(cloudData => {
+      if (cloudData && (cloudData.transactions.length > 0 || cloudData.budgets.length > 0 || cloudData.goals.length > 0)) {
+        console.log('[MongoDB] Loaded cloud ledger for user:', userId);
+        setState(s => ({
+          ...s,
+          transactions: cloudData.transactions,
+          budgets: cloudData.budgets,
+          goals: cloudData.goals,
+          friends: cloudData.friends,
+          settings: cloudData.settings || s.settings,
+        }));
       }
     });
 
+    // 2. Real-time Firebase listeners fallback
+    firebaseSync.getSettings(userId).then(cloudSettings => {
+      if (cloudSettings) setState(s => ({ ...s, settings: cloudSettings }));
+    });
+
     const unsubTxs = firebaseSync.subscribeTransactions(userId, (cloudTxs) => {
-      setState(s => ({ ...s, transactions: cloudTxs }));
+      if (cloudTxs.length > 0) setState(s => ({ ...s, transactions: cloudTxs }));
     });
 
     const unsubBudgets = firebaseSync.subscribeBudgets(userId, (cloudBudgets) => {
-      setState(s => ({ ...s, budgets: cloudBudgets }));
+      if (cloudBudgets.length > 0) setState(s => ({ ...s, budgets: cloudBudgets }));
     });
 
     const unsubGoals = firebaseSync.subscribeGoals(userId, (cloudGoals) => {
-      setState(s => ({ ...s, goals: cloudGoals }));
+      if (cloudGoals.length > 0) setState(s => ({ ...s, goals: cloudGoals }));
     });
 
     const unsubFriends = firebaseSync.subscribeFriends(userId, (cloudFriends) => {
-      setState(s => ({ ...s, friends: cloudFriends }));
+      if (cloudFriends.length > 0) setState(s => ({ ...s, friends: cloudFriends }));
     });
 
     return () => {
@@ -152,6 +166,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsubFriends();
     };
   }, [userId]);
+
+  // Push updates to MongoDB Atlas automatically whenever data changes
+  useEffect(() => {
+    if (!userId) return;
+    const timer = setTimeout(() => {
+      mongoSync.saveUserLedger(userId, {
+        transactions: state.transactions,
+        budgets: state.budgets,
+        goals: state.goals,
+        friends: state.friends,
+        settings: state.settings,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [userId, state.transactions, state.budgets, state.goals, state.friends, state.settings]);
 
   // Transactions
   const addTransaction = useCallback((t: Omit<Transaction, 'id' | 'createdAt'>) => {
