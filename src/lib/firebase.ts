@@ -27,4 +27,8 @@ export const auth = app ? getAuth(app) : null;
 // Automatically handles standard (default) database or explicit default database instance
 export const db = app ? getFirestore(app) : null;
 export const googleProvider = new GoogleAuthProvider();
+// Force Google to always display the account chooser so you can select any account
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 export default app;
