@@ -98,13 +98,13 @@ export const LandscapeHero: React.FC<LandscapeHeroProps> = ({
       </div>
 
       {/* Editorial Quote Pill */}
-      <div className="absolute bottom-3.5 left-4 right-4 md:left-6 z-10 max-w-xl">
-        <div className="px-4 py-2.5 rounded-xl bg-[#121215]/85 border border-[rgba(214,188,134,0.14)] inline-block backdrop-blur-md">
+      <div className="absolute bottom-3 left-3 right-3 sm:bottom-3.5 sm:left-4 sm:right-4 md:left-6 z-10 max-w-xl">
+        <div className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-[#121215]/90 border border-[rgba(214,188,134,0.14)] inline-block backdrop-blur-md max-w-full">
           <div className="flex items-center gap-1.5 mb-0.5">
             <Sparkles size={11} className="text-[#D6BC86]" strokeWidth={1.75} />
             <span className="text-[9px] text-[#D6BC86] uppercase tracking-[0.16em] font-semibold">Editorial Insight</span>
           </div>
-          <p className="text-[#F5F1E8] text-xs font-normal italic tracking-tight line-clamp-2 sm:line-clamp-none">
+          <p className="text-[#F5F1E8] text-[11px] sm:text-xs font-normal italic tracking-tight line-clamp-2 sm:line-clamp-none leading-snug">
             "{quote}"
           </p>
         </div>

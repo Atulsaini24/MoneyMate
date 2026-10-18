@@ -270,9 +270,9 @@ export const FriendsPage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="glass-card p-4 transition-all hover:border-[rgba(214,188,134,0.24)]"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   {/* Left: Avatar + Details */}
-                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-[#19191D] border border-[rgba(214,188,134,0.2)] flex items-center justify-center text-sm font-semibold text-[#D6BC86] flex-shrink-0">
                       {friend.name.charAt(0).toUpperCase()}
                     </div>
@@ -285,7 +285,7 @@ export const FriendsPage: React.FC = () => {
                             ? 'bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/25'
                             : 'bg-[#D98282]/15 text-[#D98282] border border-[#D98282]/25'
                         }`}>
-                          {friend.type === 'owed-to-me' ? 'Lent (Owed to you)' : 'Borrowed (You owe)'}
+                          {friend.type === 'owed-to-me' ? 'Lent (Owed)' : 'Borrowed (Owe)'}
                         </span>
 
                         {/* Status badge */}
@@ -304,7 +304,7 @@ export const FriendsPage: React.FC = () => {
                         <p className="text-xs text-[#77736D] mt-0.5 truncate">{friend.description}</p>
                       )}
 
-                      <div className="flex items-center gap-4 mt-2 text-[11px] text-[#77736D]">
+                      <div className="flex items-center gap-3 sm:gap-4 mt-2 text-[11px] text-[#77736D] flex-wrap">
                         <span className="flex items-center gap-1">
                           <Calendar size={12} /> {formatDate(friend.date)}
                         </span>
@@ -317,19 +317,22 @@ export const FriendsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Right: Amounts & Quick Actions */}
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-base font-medium text-[#F5F1E8] number-display">
-                      {formatCurrency(friend.amount)}
-                    </p>
-                    {friend.status !== 'settled' && totalPaid > 0 && (
-                      <p className="text-[11px] text-[#D6BC86] number-display">
-                        {formatCurrency(remaining)} remaining
+                  {/* Right: Amounts */}
+                  <div className="flex sm:flex-col justify-between items-baseline sm:items-end sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-[rgba(214,188,134,0.06)] flex-shrink-0">
+                    <span className="text-xs sm:hidden text-[#77736D]">Total Amount:</span>
+                    <div>
+                      <p className="text-base font-medium text-[#F5F1E8] number-display">
+                        {formatCurrency(friend.amount)}
                       </p>
-                    )}
-                    {friend.status === 'settled' && (
-                      <p className="text-[11px] text-[#83C9A5]">Fully settled</p>
-                    )}
+                      {friend.status !== 'settled' && totalPaid > 0 && (
+                        <p className="text-[11px] text-[#D6BC86] number-display">
+                          {formatCurrency(remaining)} remaining
+                        </p>
+                      )}
+                      {friend.status === 'settled' && (
+                        <p className="text-[11px] text-[#83C9A5]">Fully settled</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -350,7 +353,7 @@ export const FriendsPage: React.FC = () => {
                 )}
 
                 {/* Actions row */}
-                <div className="mt-3 pt-2.5 flex items-center justify-between gap-2 border-t border-[rgba(214,188,134,0.06)]">
+                <div className="mt-3 pt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(214,188,134,0.06)]">
                   {/* Payments toggle */}
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : friend.id)}
@@ -367,7 +370,7 @@ export const FriendsPage: React.FC = () => {
                   </button>
 
                   {/* Buttons */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {friend.status !== 'settled' && (
                       <>
                         <button
@@ -375,7 +378,7 @@ export const FriendsPage: React.FC = () => {
                             setPaymentRecord(friend);
                             setPayAmount(remaining.toString());
                           }}
-                          className="px-3 py-1 rounded-xl bg-[#D6BC86]/15 border border-[#D6BC86]/30 text-[#D6BC86] hover:bg-[#D6BC86]/25 text-xs font-semibold transition-all shadow-sm"
+                          className="px-2.5 py-1 rounded-xl bg-[#D6BC86]/15 border border-[#D6BC86]/30 text-[#D6BC86] hover:bg-[#D6BC86]/25 text-xs font-semibold transition-all shadow-sm"
                         >
                           Record Payment
                         </button>

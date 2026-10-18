@@ -52,22 +52,24 @@ export const DashboardHeader: React.FC = () => {
   return (
     <>
       {/* Mobile Top App Bar (Unified across all pages) */}
-      <header className="lg:hidden flex items-center justify-between px-3.5 py-2.5 border-b border-[rgba(214,188,134,0.1)] bg-[#0B0B0D]/95 backdrop-blur-xl sticky top-0 z-30">
-        <div className="flex items-center gap-2.5">
+      <header className="lg:hidden flex items-center justify-between px-3 py-2 border-b border-[rgba(214,188,134,0.1)] bg-[#0B0B0D]/95 backdrop-blur-xl sticky top-0 z-30 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="p-1.5 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.12)] text-[#D6BC86] active:scale-95 transition-transform"
+            className="p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)] text-[#D6BC86] active:scale-95 transition-transform flex-shrink-0"
             aria-label="Open Navigation Menu"
           >
-            <Menu size={16} strokeWidth={1.75} />
+            <Menu size={17} strokeWidth={1.75} />
           </button>
-          <MoneyMateLogo size={26} showText={true} />
+          <div className="min-w-0">
+            <MoneyMateLogo size={28} showText={true} />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {/* Cloud Sync Status Button */}
           <button
             onClick={() => setShowAuth(true)}
-            className={`p-1.5 rounded-lg border transition-all active:scale-95 ${
+            className={`p-2 rounded-xl border transition-all active:scale-95 ${
               isCloudSynced 
                 ? 'bg-[#83C9A5]/15 border-[#83C9A5]/30 text-[#83C9A5]' 
                 : 'bg-[#121215] border-[rgba(214,188,134,0.12)] text-[#D6BC86]'
@@ -79,7 +81,7 @@ export const DashboardHeader: React.FC = () => {
           </button>
           <button
             onClick={() => setShowVoice(true)}
-            className="p-1.5 rounded-lg bg-[#D6BC86]/15 border border-[#D6BC86]/35 text-[#D6BC86] active:scale-95 transition-transform"
+            className="p-2 rounded-xl bg-[#D6BC86]/15 border border-[#D6BC86]/35 text-[#D6BC86] active:scale-95 transition-transform"
             aria-label="Voice Assistant"
             title="MoneyMate Voice AI"
           >
@@ -87,7 +89,7 @@ export const DashboardHeader: React.FC = () => {
           </button>
           <button
             onClick={() => setShowTour(true)}
-            className="p-1.5 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.12)] text-[#D6BC86] active:scale-95 transition-transform"
+            className="hidden sm:flex p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)] text-[#D6BC86] active:scale-95 transition-transform"
             aria-label="Product Tour Guide"
             title="Product Tour"
           >
@@ -98,7 +100,7 @@ export const DashboardHeader: React.FC = () => {
             whileTap={{ scale: 0.85, rotate: 180 }}
             whileHover={{ scale: 1.05 }}
             onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="p-1.5 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.16)] text-[#D6BC86] shadow-sm flex items-center justify-center transition-colors"
+            className="p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-[#D6BC86] shadow-sm flex items-center justify-center transition-colors"
             aria-label="Toggle theme"
           >
             {settings.theme === 'dark' ? (
@@ -109,7 +111,7 @@ export const DashboardHeader: React.FC = () => {
           </motion.button>
           <button
             onClick={() => navigate('/settings')}
-            className="w-7 h-7 rounded-full bg-[#17171B] border border-[rgba(214,188,134,0.25)] flex items-center justify-center text-xs font-semibold text-[#D6BC86] active:scale-95 transition-transform"
+            className="w-8 h-8 rounded-full bg-[#17171B] border border-[rgba(214,188,134,0.25)] flex items-center justify-center text-xs font-semibold text-[#D6BC86] active:scale-95 transition-transform flex-shrink-0"
             aria-label="Account Settings"
           >
             {settings.name.charAt(0).toUpperCase()}

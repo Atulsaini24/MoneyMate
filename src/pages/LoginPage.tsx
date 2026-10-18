@@ -120,38 +120,38 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen w-full bg-[#0B0B0D] text-[#F5F1E8] flex flex-col lg:flex-row antialiased selection:bg-[#D6BC86]/30 selection:text-[#E9D8AF]">
       {/* LEFT SIDE: Luxury Showcase with 2s Auto Flow, Live Metrics & Compact Spacing */}
-      <div className="relative w-full lg:w-[50%] xl:w-[52%] bg-[#08080A] border-b lg:border-b-0 lg:border-r border-[rgba(214,188,134,0.12)] p-6 sm:p-8 lg:p-10 flex flex-col justify-between overflow-hidden">
+      <div className="relative w-full lg:w-[50%] xl:w-[52%] bg-[#08080A] border-b lg:border-b-0 lg:border-r border-[rgba(214,188,134,0.12)] p-4 sm:p-8 lg:p-10 flex flex-col justify-between overflow-hidden">
         {/* Subtle Ambient Backlights */}
         <div className="absolute top-0 left-0 w-80 h-80 bg-[#D6BC86]/[0.05] rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-6 right-6 w-80 h-80 bg-[#82D9A3]/[0.03] rounded-full blur-[120px] pointer-events-none" />
 
         {/* Top Header Bar */}
-        <div className="relative z-10 flex items-center justify-between pb-4">
-          <MoneyMateLogo size={34} showText={true} />
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#121215] border border-[rgba(214,188,134,0.2)] text-[11px] text-[#D6BC86] font-medium tracking-wide">
+        <div className="relative z-10 flex items-center justify-between pb-3 sm:pb-4">
+          <MoneyMateLogo size={30} showText={true} />
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-[#121215] border border-[rgba(214,188,134,0.2)] text-[10px] sm:text-[11px] text-[#D6BC86] font-medium tracking-wide">
             <span className="w-1.5 h-1.5 rounded-full bg-[#82D9A3] animate-pulse" />
             <span>CLOUD VAULT LIVE</span>
           </div>
         </div>
 
         {/* Center Presentation: Headline & Auto-Moving Showcase Card */}
-        <div className="relative z-10 my-4 max-w-xl w-full">
+        <div className="relative z-10 my-3 sm:my-4 max-w-xl w-full">
           {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D6BC86]/10 border border-[#D6BC86]/25 text-[#D6BC86] text-[11px] font-semibold uppercase tracking-wider mb-2.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D6BC86]/10 border border-[#D6BC86]/25 text-[#D6BC86] text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider mb-2">
             <Sparkles size={12} />
             Autonomous Wealth Infrastructure
           </div>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#F5F1E8] tracking-tight leading-tight">
+          <h1 className="text-xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#F5F1E8] tracking-tight leading-tight">
             Master Your Capital with <span className="gold-text">Quiet Luxury</span>
           </h1>
 
-          <p className="text-xs sm:text-sm text-[#9A958C] mt-2 leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#9A958C] mt-1.5 sm:mt-2 leading-relaxed">
             The private ledger designed for disciplined budgeting, real-time Firestore sync, and personal net worth clarity.
           </p>
 
           {/* AUTO-MOVING CAROUSEL CARD (2 SECONDS INTERVAL) */}
-          <div className="mt-5 relative">
+          <div className="mt-4 sm:mt-5 relative">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeSlide}

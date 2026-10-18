@@ -33,27 +33,27 @@ export const QuickActions: React.FC = () => {
           </h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
           {actions.map(action => (
             <button
               key={action.label}
               onClick={() => handleAction(action.type)}
-              className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-150 text-left active:scale-[0.98] ${
+              className={`flex items-center gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl border transition-all duration-150 text-left active:scale-[0.98] min-w-0 ${
                 action.isPrimary
                   ? 'bg-[#17171B] border-[rgba(214,188,134,0.3)] hover:border-[#D6BC86] text-[#F5F1E8] shadow-sm'
                   : 'bg-[#121215] border-[rgba(214,188,134,0.1)] hover:border-[rgba(214,188,134,0.22)] text-[#B6B0A5] hover:text-[#F5F1E8]'
               }`}
             >
-              <div className={`p-2 rounded-lg flex items-center justify-center ${
+              <div className={`p-2 rounded-lg flex items-center justify-center flex-shrink-0 ${
                 action.isPrimary 
                   ? 'bg-[#D6BC86]/15 text-[#D6BC86]' 
                   : 'bg-[#17171B] text-[#B6B0A5]'
               }`}>
                 <action.icon size={16} strokeWidth={1.75} />
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold tracking-tight leading-tight">{action.label}</span>
-                <span className="text-[10px] text-[#77736D] leading-tight mt-0.5">
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold tracking-tight leading-tight truncate">{action.label}</span>
+                <span className="text-[10px] text-[#77736D] leading-tight mt-0.5 truncate">
                   {action.type === 'expense' ? 'Record outflow' : action.type === 'income' ? 'Record inflow' : action.type === 'transfer' ? 'Internal move' : 'Smart OCR'}
                 </span>
               </div>

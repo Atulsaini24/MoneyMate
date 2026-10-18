@@ -95,12 +95,12 @@ export const BudgetsPage: React.FC = () => {
         </div>
 
         {/* Month selector */}
-        <div className="-mx-4 px-4 flex gap-2 overflow-x-auto pb-3 mb-5 scrollbar-none">
+        <div className="-mx-4 px-4 flex gap-1.5 sm:gap-2 overflow-x-auto pb-2.5 mb-4 scrollbar-none">
           {months.map(month => (
             <button
               key={month}
               onClick={() => setSelectedMonth(month)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
                 selectedMonth === month
                   ? 'bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/35 shadow-sm'
                   : 'bg-[#121215] text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.1)]'

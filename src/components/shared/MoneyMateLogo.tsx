@@ -48,13 +48,13 @@ export const MoneyMateLogo: React.FC<MoneyMateLogoProps> = ({
 
       {/* Brand Typography - Editorial Sans */}
       {showText && (
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 leading-tight">
-            <span className="text-[17px] font-bold tracking-tight text-[#F5F1E8]">
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1 leading-tight">
+            <span className="text-[15px] sm:text-[17px] font-bold tracking-tight text-[#F5F1E8] truncate">
               Money<span className="text-[#D6BC86] font-medium">Mate</span>
             </span>
           </div>
-          <span className="text-[9px] uppercase tracking-[0.16em] text-[#77736D] font-semibold">
+          <span className="text-[8px] sm:text-[9px] uppercase tracking-[0.16em] text-[#77736D] font-semibold truncate hidden xs:block">
             Private Wealth
           </span>
         </div>

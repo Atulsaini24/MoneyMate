@@ -92,34 +92,34 @@ export const TransactionsPage: React.FC = () => {
         </div>
 
         {/* Search & Filters */}
-        <div className="flex gap-2 mb-4">
-          <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#77736D]" />
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex-1 relative min-w-0">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#77736D]" />
             <input
               type="text"
-              placeholder="Search by payee, category, notes..."
+              placeholder="Search payee, category..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.14)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50 transition-colors"
+              className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.14)] text-xs sm:text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50 transition-colors"
             />
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`p-2.5 rounded-xl border transition-colors ${
+            className={`p-2.5 rounded-xl border transition-colors flex-shrink-0 ${
               showFilters 
                 ? 'bg-[#D6BC86]/15 text-[#D6BC86] border-[#D6BC86]/40' 
-                : 'border-[rgba(214,188,134,0.14)] hover:bg-white/5 text-[#77736D]'
+                : 'border-[rgba(214,188,134,0.14)] bg-[#121215] text-[#77736D]'
             }`}
             aria-label="Toggle filters"
           >
-            <Filter size={17} />
+            <Filter size={16} />
           </button>
           <button
             onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
-            className="p-2.5 rounded-xl border border-[rgba(214,188,134,0.14)] hover:bg-white/5 text-[#77736D] hover:text-[#F5F1E8] transition-colors"
+            className="p-2.5 rounded-xl border border-[rgba(214,188,134,0.14)] bg-[#121215] text-[#77736D] hover:text-[#F5F1E8] transition-colors flex-shrink-0"
             aria-label="Sort direction"
           >
-            <ArrowUpDown size={17} />
+            <ArrowUpDown size={16} />
           </button>
         </div>
 
@@ -167,7 +167,7 @@ export const TransactionsPage: React.FC = () => {
               <div className="-mx-4 px-4 overflow-x-auto scrollbar-none flex gap-1.5 pb-1">
                 <button
                   onClick={() => setCategoryFilter('')}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                     !categoryFilter 
                       ? 'bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/30' 
                       : 'bg-[#121215] text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.1)]'
@@ -179,7 +179,7 @@ export const TransactionsPage: React.FC = () => {
                   <button
                     key={cat.name}
                     onClick={() => setCategoryFilter(categoryFilter === cat.name ? '' : cat.name)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                       categoryFilter === cat.name 
                         ? 'bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/30' 
                         : 'bg-[#121215] text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.1)]'

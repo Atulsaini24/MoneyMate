@@ -300,26 +300,26 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#D6BC86]/25 to-[#D6BC86]/5 border border-[#D6BC86]/30 flex items-center justify-center text-[#D6BC86]">
-                  <Sparkles size={16} />
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/[0.06] gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-[#D6BC86]/25 to-[#D6BC86]/5 border border-[#D6BC86]/30 flex items-center justify-center text-[#D6BC86] flex-shrink-0">
+                  <Sparkles size={15} />
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-[#F5F1E8] tracking-tight font-serif">
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-bold text-[#F5F1E8] tracking-tight font-serif truncate">
                     MoneyMate Voice AI
                   </h3>
-                  <p className="text-[10px] text-[#A39E95]">Hindi • Punjabi • English</p>
+                  <p className="text-[9px] sm:text-[10px] text-[#A39E95] truncate">Hindi • Punjabi • English</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {/* Language Picker */}
                 <div className="relative flex items-center">
                   <select
                     value={selectedLang}
                     onChange={(e) => setSelectedLang(e.target.value)}
-                    className="appearance-none pl-3 pr-7 py-1 rounded-lg bg-[#18181E] border border-[rgba(214,188,134,0.2)] text-[11px] font-semibold text-[#D6BC86] focus:outline-none focus:border-[#D6BC86]/60 cursor-pointer"
+                    className="appearance-none pl-2.5 pr-6 py-1 rounded-lg bg-[#18181E] border border-[rgba(214,188,134,0.2)] text-[10px] sm:text-[11px] font-semibold text-[#D6BC86] focus:outline-none focus:border-[#D6BC86]/60 cursor-pointer max-w-[130px] sm:max-w-none truncate"
                   >
                     {SUPPORTED_LANGUAGES.map((l) => (
                       <option key={l.code} value={l.code}>
@@ -334,7 +334,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                   onClick={onClose}
                   className="p-1 rounded-lg text-[#77736D] hover:text-[#F5F1E8] hover:bg-white/5 transition-colors"
                 >
-                  <X size={18} />
+                  <X size={17} />
                 </button>
               </div>
             </div>

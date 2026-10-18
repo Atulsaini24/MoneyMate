@@ -164,9 +164,10 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
               </div>
 
               {/* Amount display */}
-              <div className="text-center px-5 mb-4">
-                <div className="text-4xl md:text-5xl font-medium text-[#F5F1E8] number-display tracking-tight">
-                  ₹{amount || '0'}
+              <div className="text-center px-5 mb-3">
+                <div className="text-3xl md:text-5xl font-medium text-[#F5F1E8] number-display tracking-tight flex items-center justify-center gap-1">
+                  <span>{settings.currencySymbol || '₹'}</span>
+                  <span>{amount || '0'}</span>
                 </div>
                 <p className="text-xs text-[#77736D] mt-1 font-medium">
                   {errors.amount ? <span className="text-[#D98282] font-semibold">{errors.amount}</span> : 'Enter capital amount'}
@@ -174,12 +175,13 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
               </div>
 
               {/* Numpad - mobile only */}
-              <div className="grid grid-cols-3 gap-2 px-5 mb-5 md:hidden">
+              <div className="grid grid-cols-3 gap-1.5 px-5 mb-4 md:hidden">
                 {['1','2','3','4','5','6','7','8','9','.','0','backspace'].map(val => (
                   <button
                     key={val}
+                    type="button"
                     onClick={() => handleNumPadPress(val)}
-                    className="h-12 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)] text-lg font-medium text-[#F5F1E8] hover:bg-white/5 transition-colors active:scale-95 flex items-center justify-center number-display"
+                    className="h-11 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)] text-base font-medium text-[#F5F1E8] hover:bg-white/5 transition-colors active:scale-95 flex items-center justify-center number-display"
                   >
                     {val === 'backspace' ? '⌫' : val}
                   </button>
@@ -198,19 +200,20 @@ export const AddTransactionSheet: React.FC<AddTransactionSheetProps> = ({
               </div>
 
               {/* Category shortcuts */}
-              <div className="px-5 mb-5">
-                <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+              <div className="px-5 mb-4">
+                <div className="flex gap-2 overflow-x-auto pb-2.5 pt-1 scrollbar-none -mx-1 px-1">
                   {categories.slice(0, 8).map(cat => (
                     <button
                       key={cat.name}
+                      type="button"
                       onClick={() => { setCategory(cat.name); if (errors.category) setErrors(e => ({...e, category: ''})); }}
-                      className={`flex flex-col items-center gap-1.5 min-w-[64px] py-2.5 px-1.5 rounded-2xl transition-all ${
+                      className={`flex flex-col items-center gap-1.5 min-w-[62px] py-2 px-1 rounded-xl transition-all flex-shrink-0 ${
                         category === cat.name
                           ? 'bg-[#D6BC86]/15 border border-[#D6BC86]/40 text-[#D6BC86] shadow-sm'
                           : 'bg-[#121215] border border-[rgba(214,188,134,0.1)] hover:border-[rgba(214,188,134,0.22)]'
                       }`}
                     >
-                      <CategoryIcon name={cat.icon} color={cat.color} size={17} />
+                      <CategoryIcon name={cat.icon} color={cat.color} size={16} />
                       <span className="text-[10px] text-[#B6B0A5] font-medium whitespace-nowrap">
                         {cat.name.split(' ')[0]}
                       </span>
