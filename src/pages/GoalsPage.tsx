@@ -287,6 +287,15 @@ export const GoalsPage: React.FC = () => {
         isOpen={showCreate}
         onClose={() => { setShowCreate(false); setEditGoal(null); }}
         title={editGoal ? 'Edit Goal' : 'Create Savings Goal'}
+        footer={
+          <button
+            onClick={handleSave}
+            disabled={!formName.trim() || !formTarget}
+            className="w-full py-3.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-bold text-xs uppercase tracking-wider disabled:opacity-40 transition-all shadow-md active:scale-[0.98] cursor-pointer"
+          >
+            {editGoal ? 'Update Goal' : 'Confirm Goal Creation'}
+          </button>
+        }
       >
         <div className="space-y-4">
           <div>
@@ -346,9 +355,9 @@ export const GoalsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-[#B6B0A5] font-medium mb-1.5 block">Target Amount</label>
+              <label className="text-xs text-[#B6B0A5] font-medium mb-1.5 block">Target Amount (₹)</label>
               <input
                 type="number"
                 placeholder="40000"
@@ -358,7 +367,7 @@ export const GoalsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-xs text-[#B6B0A5] font-medium mb-1.5 block">Already Saved</label>
+              <label className="text-xs text-[#B6B0A5] font-medium mb-1.5 block">Already Saved (₹)</label>
               <input
                 type="number"
                 placeholder="0"
@@ -369,14 +378,14 @@ export const GoalsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-[#B6B0A5] font-medium mb-1.5 block">Target Date</label>
               <input
                 type="date"
                 value={formDate}
                 onChange={e => setFormDate(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
+                className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark] cursor-pointer"
               />
             </div>
             <div>
@@ -384,7 +393,7 @@ export const GoalsPage: React.FC = () => {
               <select
                 value={formCategory}
                 onChange={e => setFormCategory(e.target.value as any)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
+                className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark] cursor-pointer"
               >
                 <option value="short-term">Short Term</option>
                 <option value="long-term">Long Term</option>
@@ -402,14 +411,6 @@ export const GoalsPage: React.FC = () => {
               className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50 resize-none"
             />
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={!formName.trim() || !formTarget}
-            className="w-full py-3 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-semibold text-xs uppercase tracking-wider disabled:opacity-40 transition-all shadow-sm active:scale-[0.98]"
-          >
-            {editGoal ? 'Update Goal' : 'Confirm Goal Creation'}
-          </button>
         </div>
       </Modal>
 

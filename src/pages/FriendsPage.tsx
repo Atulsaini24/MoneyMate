@@ -446,6 +446,24 @@ export const FriendsPage: React.FC = () => {
         isOpen={showAddModal}
         onClose={() => { setShowAddModal(false); resetForm(); }}
         title={editRecord ? 'Edit Friend Record' : 'Add Friend / IOU'}
+        footer={
+          <div className="flex items-center gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => { setShowAddModal(false); resetForm(); }}
+              className="px-4 py-3 rounded-xl text-xs font-semibold text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.12)] bg-[#121215]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveRecord}
+              className="flex-1 py-3 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-md"
+            >
+              {editRecord ? 'Update Record' : 'Save Record'}
+            </button>
+          </div>
+        }
       >
         <form onSubmit={handleSaveRecord} className="space-y-4">
           <div>
@@ -522,22 +540,6 @@ export const FriendsPage: React.FC = () => {
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
             />
           </div>
-
-          <div className="pt-2 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={() => { setShowAddModal(false); resetForm(); }}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-[#77736D] hover:text-[#F5F1E8]"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-semibold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-            >
-              {editRecord ? 'Update Record' : 'Save Record'}
-            </button>
-          </div>
         </form>
       </Modal>
 
@@ -546,6 +548,24 @@ export const FriendsPage: React.FC = () => {
         isOpen={!!paymentRecord}
         onClose={() => setPaymentRecord(null)}
         title={`Record Payment — ${paymentRecord?.name}`}
+        footer={
+          <div className="flex items-center gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => setPaymentRecord(null)}
+              className="px-4 py-3 rounded-xl text-xs font-semibold text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.12)] bg-[#121215]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleRecordPayment}
+              className="flex-1 py-3 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-md cursor-pointer"
+            >
+              Confirm Settlement
+            </button>
+          </div>
+        }
       >
         <form onSubmit={handleRecordPayment} className="space-y-4">
           <div>
@@ -570,22 +590,6 @@ export const FriendsPage: React.FC = () => {
               onChange={e => setPayNotes(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50"
             />
-          </div>
-
-          <div className="pt-2 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={() => setPaymentRecord(null)}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-[#77736D] hover:text-[#F5F1E8]"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-semibold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-            >
-              Confirm Settlement
-            </button>
           </div>
         </form>
       </Modal>

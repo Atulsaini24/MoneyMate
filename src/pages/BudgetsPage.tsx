@@ -224,6 +224,15 @@ export const BudgetsPage: React.FC = () => {
         isOpen={showAddBudget}
         onClose={() => { setShowAddBudget(false); setEditBudgetId(null); resetForm(); }}
         title={editBudgetId ? 'Edit Budget' : 'Add Budget'}
+        footer={
+          <button
+            onClick={handleSaveBudget}
+            disabled={!formCategory || !formLimit}
+            className="w-full py-3.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-bold text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-[0.98] cursor-pointer"
+          >
+            {editBudgetId ? 'Update Budget Plan' : 'Confirm Budget Allocation'}
+          </button>
+        }
       >
         <div className="space-y-4">
           <div>
@@ -231,7 +240,7 @@ export const BudgetsPage: React.FC = () => {
             <select
               value={formCategory}
               onChange={e => setFormCategory(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
+              className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark] cursor-pointer"
             >
               <option value="">Select category</option>
               {(editBudgetId ? EXPENSE_CATEGORIES : availableCategories).map(cat => (
@@ -261,13 +270,6 @@ export const BudgetsPage: React.FC = () => {
               className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50 number-display"
             />
           </div>
-          <button
-            onClick={handleSaveBudget}
-            disabled={!formCategory || !formLimit}
-            className="w-full py-3 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-semibold text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm active:scale-[0.98]"
-          >
-            {editBudgetId ? 'Update Budget Plan' : 'Confirm Budget Allocation'}
-          </button>
         </div>
       </Modal>
 
