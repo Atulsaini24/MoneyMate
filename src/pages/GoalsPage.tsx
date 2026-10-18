@@ -302,29 +302,47 @@ export const GoalsPage: React.FC = () => {
 
           {/* Goal Artwork Preset Selector */}
           <div>
-            <label className="text-xs text-[#B6B0A5] font-medium mb-2 block flex items-center gap-1.5">
-              <ImageIcon size={14} className="text-[#D6BC86]" />
-              <span>Select Goal Artwork</span>
-            </label>
-            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-40 overflow-y-auto p-1.5 bg-[#0B0B0D] rounded-xl border border-[rgba(214,188,134,0.14)]">
-              {GOAL_IMAGE_PRESETS.map(preset => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    setFormImage(preset.image);
-                    if (!formName) setFormName(preset.name);
-                  }}
-                  className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all p-0.5 ${
-                    formImage === preset.image
-                      ? 'border-[#D6BC86] ring-2 ring-[#D6BC86]/40 scale-95 shadow-md'
-                      : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
-                  title={preset.name}
-                >
-                  <img src={preset.image} alt={preset.name} className="w-full h-full object-cover rounded-lg" />
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-[#B6B0A5] font-medium flex items-center gap-1.5">
+                <ImageIcon size={14} className="text-[#D6BC86]" />
+                <span>Select Goal Artwork</span>
+              </label>
+              <span className="text-[10px] text-[#77736D] font-mono">
+                {GOAL_IMAGE_PRESETS.find(p => p.image === formImage)?.name || 'Custom'}
+              </span>
+            </div>
+            <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 scrollbar-none -mx-1 px-1">
+              {GOAL_IMAGE_PRESETS.map(preset => {
+                const isSelected = formImage === preset.image;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      setFormImage(preset.image);
+                      if (!formName) setFormName(preset.name);
+                    }}
+                    className={`relative rounded-xl overflow-hidden w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 border-2 transition-all group ${
+                      isSelected
+                        ? 'border-[#D6BC86] ring-2 ring-[#D6BC86]/40 shadow-lg scale-95'
+                        : 'border-[rgba(214,188,134,0.14)] opacity-70 hover:opacity-100 hover:border-[rgba(214,188,134,0.3)]'
+                    }`}
+                    title={preset.name}
+                  >
+                    <img src={preset.image} alt={preset.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-1">
+                      <span className="text-[9px] text-[#F5F1E8] font-medium truncate w-full text-center">
+                        {preset.name}
+                      </span>
+                    </div>
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#D6BC86] text-[#0B0B0D] flex items-center justify-center text-[10px] font-bold shadow">
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
