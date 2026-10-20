@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Transaction, Budget, SavingsGoal, FriendRecord, FriendPayment, UserSettings } from '@/types';
 import { defaultSettings } from '@/data/seed';
 import { generateId, getCurrentMonth, getMonthYear } from '@/lib/utils';
-import { firebaseSync } from '@/lib/firebaseSync';
 import { mongoSync } from '@/lib/mongoSync';
 import { useAuth } from '@/context/AuthContext';
 
@@ -70,10 +69,17 @@ function loadState(): AppState {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return { ...parsed, toasts: [] };
+      return {
+        transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+        budgets: Array.isArray(parsed.budgets) ? parsed.budgets : [],
+        goals: Array.isArray(parsed.goals) ? parsed.goals : [],
+        friends: Array.isArray(parsed.friends) ? parsed.friends : [],
+        settings: parsed.settings ? { ...defaultSettings, ...parsed.settings } : defaultSettings,
+        toasts: [],
+      };
     }
   } catch (e) {
-    console.error('Failed to load state:', e);
+    console.error('Failed to load local state:', e);
   }
   return {
     transactions: [],
@@ -90,7 +96,7 @@ function saveState(state: AppState) {
     const { toasts, ...rest } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
   } catch (e) {
-    console.error('Failed to save state:', e);
+    console.error('Failed to save state to localStorage:', e);
   }
 }
 
@@ -100,6 +106,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
   const { user } = useAuth();
   const userId = user?.uid || null;
+  const isInitialLoaded = useRef(false);
 
   // Toast helper
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -119,75 +126,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveState(state);
   }, [state.transactions, state.budgets, state.goals, state.friends, state.settings]);
 
-  // Dual-Cloud Real-time synchronization: MongoDB Atlas + Firestore fallback
+  // MongoDB Atlas Real-time synchronization
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      isInitialLoaded.current = true;
+      return;
+    }
 
-    // Automatically derive display name from Google Auth or email prefix (e.g. 'pro' from pro662115@gmail.com)
+    isInitialLoaded.current = false;
+
+    // Automatically derive display name from Google Auth or email prefix
     const derivedName = user?.displayName?.trim() || 
       (user?.email ? user.email.split('@')[0] : 'Investor');
 
-    // 1. Fetch complete ledger from MongoDB Atlas
+    // Fetch complete ledger from MongoDB Atlas and safely merge with local cache
     mongoSync.fetchUserLedger(userId).then(cloudData => {
-      if (cloudData && (cloudData.transactions.length > 0 || cloudData.budgets.length > 0 || cloudData.goals.length > 0)) {
-        console.log('[MongoDB] Loaded cloud ledger for user:', userId);
-        setState(s => ({
-          ...s,
-          transactions: cloudData.transactions,
-          budgets: cloudData.budgets,
-          goals: cloudData.goals,
-          friends: cloudData.friends,
-          settings: {
-            ...(cloudData.settings || s.settings),
-            name: cloudData.settings?.name && cloudData.settings.name !== 'Atul' && cloudData.settings.name !== 'Investor'
-              ? cloudData.settings.name 
-              : derivedName,
-          },
-        }));
+      if (cloudData) {
+        console.log('[MongoDB] Loaded cloud ledger for user:', userId, {
+          txCount: cloudData.transactions?.length || 0,
+        });
+
+        setState(s => {
+          // Merge transactions by ID: cloud takes priority, local items with new IDs are preserved
+          const txMap = new Map<string, Transaction>();
+          s.transactions.forEach(t => txMap.set(t.id, t));
+          (cloudData.transactions || []).forEach(t => txMap.set(t.id, t));
+          const mergedTransactions = Array.from(txMap.values()).sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+
+          // Merge budgets by ID
+          const budgetMap = new Map<string, Budget>();
+          s.budgets.forEach(b => budgetMap.set(b.id, b));
+          (cloudData.budgets || []).forEach(b => budgetMap.set(b.id, b));
+
+          // Merge goals by ID
+          const goalMap = new Map<string, SavingsGoal>();
+          s.goals.forEach(g => goalMap.set(g.id, g));
+          (cloudData.goals || []).forEach(g => goalMap.set(g.id, g));
+
+          // Merge friends by ID
+          const friendMap = new Map<string, FriendRecord>();
+          s.friends.forEach(f => friendMap.set(f.id, f));
+          (cloudData.friends || []).forEach(f => friendMap.set(f.id, f));
+
+          return {
+            ...s,
+            transactions: mergedTransactions,
+            budgets: Array.from(budgetMap.values()),
+            goals: Array.from(goalMap.values()),
+            friends: Array.from(friendMap.values()),
+            settings: {
+              ...(cloudData.settings || s.settings),
+              name: cloudData.settings?.name && cloudData.settings.name !== 'Atul' && cloudData.settings.name !== 'Investor'
+                ? cloudData.settings.name 
+                : derivedName,
+            },
+          };
+        });
       } else {
-        // If new user or empty settings, initialize with their real name / email prefix
+        // If no cloud data found, initialize settings with their name
         setState(s => ({
           ...s,
           settings: {
             ...s.settings,
-            name: derivedName
+            name: s.settings?.name && s.settings.name !== 'Investor' ? s.settings.name : derivedName,
           }
         }));
       }
+
+      isInitialLoaded.current = true;
+    }).catch(err => {
+      console.error('[MongoDB Error] Initial ledger sync error:', err);
+      isInitialLoaded.current = true;
     });
+  }, [userId, user?.displayName, user?.email]);
 
-    // 2. Real-time Firebase listeners fallback
-    firebaseSync.getSettings(userId).then(cloudSettings => {
-      if (cloudSettings) setState(s => ({ ...s, settings: cloudSettings }));
-    });
-
-    const unsubTxs = firebaseSync.subscribeTransactions(userId, (cloudTxs) => {
-      if (cloudTxs.length > 0) setState(s => ({ ...s, transactions: cloudTxs }));
-    });
-
-    const unsubBudgets = firebaseSync.subscribeBudgets(userId, (cloudBudgets) => {
-      if (cloudBudgets.length > 0) setState(s => ({ ...s, budgets: cloudBudgets }));
-    });
-
-    const unsubGoals = firebaseSync.subscribeGoals(userId, (cloudGoals) => {
-      if (cloudGoals.length > 0) setState(s => ({ ...s, goals: cloudGoals }));
-    });
-
-    const unsubFriends = firebaseSync.subscribeFriends(userId, (cloudFriends) => {
-      if (cloudFriends.length > 0) setState(s => ({ ...s, friends: cloudFriends }));
-    });
-
-    return () => {
-      unsubTxs();
-      unsubBudgets();
-      unsubGoals();
-      unsubFriends();
-    };
-  }, [userId]);
-
-  // Push updates to MongoDB Atlas automatically whenever data changes
+  // Push updates to MongoDB Atlas automatically whenever data changes (guarded by isInitialLoaded)
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isInitialLoaded.current) return;
     const timer = setTimeout(() => {
       mongoSync.saveUserLedger(userId, {
         transactions: state.transactions,
@@ -200,7 +217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           displayName: user?.displayName || state.settings?.name || 'Investor'
         }
       });
-    }, 500);
+    }, 400);
     return () => clearTimeout(timer);
   }, [userId, user?.email, user?.displayName, state.transactions, state.budgets, state.goals, state.friends, state.settings]);
 
@@ -208,33 +225,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTransaction = useCallback((t: Omit<Transaction, 'id' | 'createdAt'>) => {
     const newT: Transaction = { ...t, id: generateId(), createdAt: new Date().toISOString() };
     setState(s => ({ ...s, transactions: [newT, ...s.transactions] }));
-    if (userId) firebaseSync.saveTransaction(userId, newT);
     showToast(`${t.type === 'income' ? 'Inflow' : 'Outflow'} recorded successfully!`);
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const updateTransaction = useCallback((id: string, updates: Partial<Transaction>) => {
     setState(s => {
       const updated = s.transactions.map(t => {
         if (t.id === id) {
-          const res = { ...t, ...updates };
-          if (userId) firebaseSync.saveTransaction(userId, res);
-          return res;
+          return { ...t, ...updates };
         }
         return t;
       });
       return { ...s, transactions: updated };
     });
     showToast('Transaction updated!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const deleteTransaction = useCallback((id: string) => {
     setState(s => ({
       ...s,
       transactions: s.transactions.filter(t => t.id !== id),
     }));
-    if (userId) firebaseSync.deleteTransaction(userId, id);
     showToast('Transaction deleted!', 'info');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const getMonthlyTransactions = useCallback((month: string) => {
     return state.transactions.filter(t => getMonthYear(t.date) === month);
@@ -262,30 +275,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addBudget = useCallback((b: Omit<Budget, 'id'>) => {
     const newB = { ...b, id: generateId() };
     setState(s => ({ ...s, budgets: [...s.budgets, newB] }));
-    if (userId) firebaseSync.saveBudget(userId, newB);
     showToast('Budget plan created!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const updateBudget = useCallback((id: string, updates: Partial<Budget>) => {
     setState(s => {
       const updated = s.budgets.map(b => {
         if (b.id === id) {
-          const res = { ...b, ...updates };
-          if (userId) firebaseSync.saveBudget(userId, res);
-          return res;
+          return { ...b, ...updates };
         }
         return b;
       });
       return { ...s, budgets: updated };
     });
     showToast('Budget updated!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const deleteBudget = useCallback((id: string) => {
     setState(s => ({ ...s, budgets: s.budgets.filter(b => b.id !== id) }));
-    if (userId) firebaseSync.deleteBudget(userId, id);
     showToast('Budget removed!', 'info');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   // Goals
   const addGoal = useCallback((g: Omit<SavingsGoal, 'id' | 'createdAt'>) => {
@@ -294,44 +303,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...s,
       goals: [...s.goals, newG],
     }));
-    if (userId) firebaseSync.saveGoal(userId, newG);
     showToast('Capital goal created!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const updateGoal = useCallback((id: string, updates: Partial<SavingsGoal>) => {
     setState(s => {
       const updated = s.goals.map(g => {
         if (g.id === id) {
-          const res = { ...g, ...updates };
-          if (userId) firebaseSync.saveGoal(userId, res);
-          return res;
+          return { ...g, ...updates };
         }
         return g;
       });
       return { ...s, goals: updated };
     });
     showToast('Goal updated!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const deleteGoal = useCallback((id: string) => {
     setState(s => ({ ...s, goals: s.goals.filter(g => g.id !== id) }));
-    if (userId) firebaseSync.deleteGoal(userId, id);
     showToast('Goal removed!', 'info');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const addMoneyToGoal = useCallback((id: string, amount: number) => {
     setState(s => {
       const updated = s.goals.map(g => {
         if (g.id !== id) return g;
         const newSaved = Math.min(g.savedAmount + amount, g.targetAmount);
-        const res = { ...g, savedAmount: newSaved };
-        if (userId) firebaseSync.saveGoal(userId, res);
-        return res;
+        return { ...g, savedAmount: newSaved };
       });
       return { ...s, goals: updated };
     });
     showToast('Capital deposited to goal!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   // Friends
   const addFriend = useCallback((f: Omit<FriendRecord, 'id' | 'payments'>) => {
@@ -340,30 +343,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...s,
       friends: [...s.friends, newF],
     }));
-    if (userId) firebaseSync.saveFriend(userId, newF);
     showToast('IOU record added!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const updateFriend = useCallback((id: string, updates: Partial<FriendRecord>) => {
     setState(s => {
       const updated = s.friends.map(f => {
         if (f.id === id) {
-          const res = { ...f, ...updates };
-          if (userId) firebaseSync.saveFriend(userId, res);
-          return res;
+          return { ...f, ...updates };
         }
         return f;
       });
       return { ...s, friends: updated };
     });
     showToast('Record updated!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const deleteFriend = useCallback((id: string) => {
     setState(s => ({ ...s, friends: s.friends.filter(f => f.id !== id) }));
-    if (userId) firebaseSync.deleteFriend(userId, id);
     showToast('Record deleted!', 'info');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const addPayment = useCallback((friendId: string, payment: Omit<FriendPayment, 'id'>) => {
     setState(s => {
@@ -373,47 +372,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const updatedPayments = [...f.payments, newPayment];
         const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
         const newStatus = totalPaid >= f.amount ? 'settled' : 'partially-paid';
-        const res = { ...f, payments: updatedPayments, status: newStatus as FriendRecord['status'] };
-        if (userId) firebaseSync.saveFriend(userId, res);
-        return res;
+        return { ...f, payments: updatedPayments, status: newStatus as FriendRecord['status'] };
       });
       return { ...s, friends: updated };
     });
     showToast('Payment recorded!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const settleFriend = useCallback((id: string) => {
     setState(s => {
       const updated = s.friends.map(f => {
         if (f.id !== id) return f;
-        const res = { ...f, status: 'settled' as const };
-        if (userId) firebaseSync.saveFriend(userId, res);
-        return res;
+        return { ...f, status: 'settled' as const };
       });
       return { ...s, friends: updated };
     });
     showToast('Marked as settled!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   // Settings
   const updateSettings = useCallback((updates: Partial<UserSettings>) => {
     setState(s => {
       const newSettings = { ...s.settings, ...updates };
-      if (userId) firebaseSync.saveSettings(userId, newSettings);
       return { ...s, settings: newSettings };
     });
     showToast('Settings updated!');
-  }, [userId, showToast]);
+  }, [showToast]);
 
   const resetData = useCallback(() => {
-    setState(s => ({
+    const emptyState: AppState = {
       transactions: [],
       budgets: [],
       goals: [],
       friends: [],
-      settings: s.settings,
+      settings: state.settings,
       toasts: [],
-    }));
+    };
+    setState(emptyState);
     if (userId) {
       mongoSync.saveUserLedger(userId, {
         transactions: [],
@@ -449,11 +444,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
         setState(s => ({ ...s, ...nextState }));
         if (userId) {
-          nextState.transactions.forEach((t: Transaction) => firebaseSync.saveTransaction(userId, t));
-          nextState.budgets.forEach((b: Budget) => firebaseSync.saveBudget(userId, b));
-          nextState.goals.forEach((g: SavingsGoal) => firebaseSync.saveGoal(userId, g));
-          nextState.friends.forEach((f: FriendRecord) => firebaseSync.saveFriend(userId, f));
-          firebaseSync.saveSettings(userId, nextState.settings);
+          mongoSync.saveUserLedger(userId, {
+            ...nextState,
+            userInfo: {
+              email: user?.email || null,
+              displayName: user?.displayName || nextState.settings?.name || 'Investor'
+            }
+          });
         }
         showToast('Data backup restored and synchronized!', 'success');
         return true;
@@ -462,7 +459,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error('Import failed:', e);
     }
     return false;
-  }, [userId, state, showToast]);
+  }, [userId, state, user, showToast]);
 
   const value: AppContextType = {
     ...state,

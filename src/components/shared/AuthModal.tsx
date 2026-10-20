@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Mail, User as UserIcon, ShieldCheck, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useApp } from '@/context/AppContext';
-import { firebaseSync } from '@/lib/firebaseSync';
+import { mongoSync } from '@/lib/mongoSync';
 import { useNavigate } from 'react-router-dom';
 
 interface AuthModalProps {
@@ -127,7 +127,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <div className="p-3 rounded-xl bg-[#83C9A5]/10 border border-[#83C9A5]/25 flex items-center gap-2 text-xs text-[#83C9A5] text-left">
                 <CheckCircle size={16} className="flex-shrink-0" />
-                <span>Real-time Firestore synchronization active. Ledger changes automatically sync to your cloud vault.</span>
+                <span>MongoDB Atlas cloud synchronization active. Ledger changes automatically sync to your secure cloud database.</span>
               </div>
 
               <div className="pt-2 flex flex-col gap-2">
@@ -135,26 +135,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   type="button"
                   onClick={async () => {
                     try {
-                      showToast('Testing database write...', 'info');
-                      await firebaseSync.saveTransaction(user.uid, {
-                        id: 'tx_ping_' + Date.now(),
-                        type: 'income',
-                        amount: 1,
-                        description: 'Cloud Connection Verification Ping',
-                        category: 'Others',
-                        date: new Date().toISOString(),
-                        paymentMethod: 'Other',
-                        createdAt: new Date().toISOString(),
+                      showToast('Verifying MongoDB connection...', 'info');
+                      const ok = await mongoSync.saveUserLedger(user.uid, {
+                        transactions: [],
+                        budgets: [],
+                        goals: [],
+                        friends: [],
+                        userInfo: {
+                          email: user.email || null,
+                          displayName: user.displayName || 'Investor'
+                        }
                       });
-                      showToast('Database write confirmed! Refresh Firebase Console.', 'success');
+                      if (ok) {
+                        showToast('MongoDB Atlas database write verified!', 'success');
+                      } else {
+                        showToast('MongoDB connection check completed.', 'info');
+                      }
                     } catch (err: any) {
                       console.error('Write failed:', err);
-                      showToast('Database write error: ' + (err.message || 'Check Firestore rules'), 'error');
+                      showToast('Database write error: ' + (err.message || 'Check database connection'), 'error');
                     }
                   }}
                   className="w-full py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
                 >
-                  Verify & Push Test Record to Firestore
+                  Verify MongoDB Atlas Connection
                 </button>
 
                 <button
