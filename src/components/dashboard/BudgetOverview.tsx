@@ -17,26 +17,26 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ budgets }) => {
     <div className="glass-card p-5 h-full flex flex-col justify-between">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#77736D]">
-            Category Budget Limits
+          <h3 className="text-sm font-semibold text-mm-text">
+            Budgets this month
           </h3>
-          <p className="text-xs text-[#B6B0A5] mt-0.5">Discipline and thresholds</p>
+          <p className="text-xs text-mm-text2 mt-0.5">How each category is tracking</p>
         </div>
         <button 
           onClick={() => navigate('/budgets')}
-          className="text-xs text-[#D6BC86] font-medium hover:text-[#E9D8AF] transition-colors"
+          className="text-xs text-mm-gold font-medium hover:text-mm-gold-light transition-colors"
         >
-          Manage All →
+          Manage
         </button>
       </div>
 
       {budgets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 my-auto text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#121215] border border-[rgba(214,188,134,0.14)] flex items-center justify-center text-[#D6BC86] mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-mm-bg2 border border-mm-line/14 flex items-center justify-center text-mm-gold mb-3">
             <span className="text-xs font-serif">₹0</span>
           </div>
-          <p className="text-xs font-medium text-[#B6B0A5]">No budget envelopes established</p>
-          <p className="text-[11px] text-[#77736D] mt-0.5">Click 'Manage All' to set spending ceilings for this month</p>
+          <p className="text-xs font-medium text-mm-text2">No budget envelopes established</p>
+          <p className="text-[11px] text-mm-muted mt-0.5">Use Manage to set spending ceilings for this month</p>
         </div>
       ) : (
         <div className="space-y-3.5 my-auto">
@@ -49,7 +49,7 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ budgets }) => {
           return (
             <div
               key={budget.category}
-              className="group cursor-pointer p-1.5 rounded-lg hover:bg-[#121215] transition-colors"
+              className="group cursor-pointer p-1.5 rounded-lg hover:bg-mm-bg2 transition-colors"
               onClick={() => navigate('/budgets')}
             >
               <div className="flex items-center justify-between mb-1.5 text-xs gap-2">
@@ -57,13 +57,13 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ budgets }) => {
                   {catInfo && (
                     <CategoryIcon name={catInfo.icon} color={catInfo.color} size={13} className="!w-6 !h-6 !rounded-md flex-shrink-0" />
                   )}
-                  <span className="text-[#F5F1E8] font-medium truncate">{budget.category}</span>
+                  <span className="text-mm-text font-medium truncate">{budget.category}</span>
                   {isWarning && (
-                    <AlertCircle size={12} className="text-[#D9B46F] flex-shrink-0" strokeWidth={2} />
+                    <AlertCircle size={12} className="text-mm-warning flex-shrink-0" strokeWidth={2} />
                   )}
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                  <span className="text-[#77736D] number-display text-[11px] sm:text-xs">
+                  <span className="text-mm-muted number-display text-[11px] sm:text-xs">
                     {formatCurrency(budget.spent)} <span className="text-[#4A4742]">/</span> {formatCurrency(budget.limit)}
                   </span>
                   <span className="font-semibold number-display text-right w-8 sm:w-10 text-[11px] sm:text-xs" style={{ color }}>

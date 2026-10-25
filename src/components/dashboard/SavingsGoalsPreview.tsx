@@ -27,14 +27,14 @@ export const SavingsGoalsPreview: React.FC = () => {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#77736D]">
-            Capital Accumulation & Goals
+          <h3 className="text-sm font-semibold text-mm-text">
+            Savings goals
           </h3>
-          <p className="text-xs text-[#B6B0A5] mt-0.5">Strategic milestones and savings progress</p>
+          <p className="text-xs text-mm-text2 mt-0.5">Progress towards what you’re saving for</p>
         </div>
         <button 
           onClick={() => navigate('/goals')}
-          className="text-xs text-[#D6BC86] font-medium hover:text-[#E9D8AF] transition-colors"
+          className="text-xs text-mm-gold font-medium hover:text-mm-gold-light transition-colors"
         >
           All Goals ({goals.length}) →
         </button>
@@ -53,15 +53,15 @@ export const SavingsGoalsPreview: React.FC = () => {
             >
               {/* Image banner with dark editorial overlay */}
               {imageSrc && (
-                <div className="relative h-28 w-full overflow-hidden bg-[#121215]">
+                <div className="relative h-28 w-full overflow-hidden bg-mm-bg2">
                   <img
                     src={imageSrc}
                     alt={goal.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   {/* Subtle dark gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#17171B] via-[#17171B]/60 to-transparent" />
-                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-[#0B0B0D]/80 backdrop-blur-sm border border-[rgba(214,188,134,0.16)] text-[10px] font-mono text-[#D6BC86]">
+                  <div className="absolute inset-0 bg-gradient-to-t from-mm-card via-mm-card/60 to-transparent" />
+                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-mm-bg/80 backdrop-blur-sm border border-mm-line/16 text-[10px] font-mono text-mm-gold">
                     {progress}%
                   </div>
                 </div>
@@ -71,22 +71,22 @@ export const SavingsGoalsPreview: React.FC = () => {
               <div className="p-4 pt-2 flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between gap-1">
-                    <h4 className="text-sm font-semibold text-[#F5F1E8] truncate tracking-tight">{goal.name}</h4>
-                    <ArrowUpRight size={13} className="text-[#77736D] group-hover:text-[#D6BC86] transition-colors" />
+                    <h4 className="text-sm font-semibold text-mm-text truncate tracking-tight">{goal.name}</h4>
+                    <ArrowUpRight size={13} className="text-mm-muted group-hover:text-mm-gold transition-colors" />
                   </div>
-                  <p className="text-xs text-[#77736D] mt-0.5 number-display">
+                  <p className="text-xs text-mm-muted mt-0.5 number-display">
                     Target: {formatCurrency(goal.targetAmount)}
                   </p>
                 </div>
 
-                <div className="mt-3 pt-2 border-t border-[rgba(214,188,134,0.08)]">
-                  <div className="flex items-center justify-between text-[11px] text-[#B6B0A5] mb-1.5 number-display">
+                <div className="mt-3 pt-2 border-t border-mm-line/8">
+                  <div className="flex items-center justify-between text-[11px] text-mm-text2 mb-1.5 number-display">
                     <span>{formatCurrency(goal.savedAmount)} saved</span>
-                    <span className="text-[#77736D]">{formatCurrency(Math.max(0, goal.targetAmount - goal.savedAmount))} left</span>
+                    <span className="text-mm-muted">{formatCurrency(Math.max(0, goal.targetAmount - goal.savedAmount))} left</span>
                   </div>
                   <div className="progress-bar">
                     <div
-                      className="progress-bar-fill bg-[#D6BC86]"
+                      className="progress-bar-fill bg-mm-gold"
                       style={{ width: `${progress}%` }}
                     />
                   </div>

@@ -1,31 +1,52 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Transaction, Budget, SavingsGoal, FriendRecord, FriendPayment, UserSettings } from '@/types';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Transaction, Budget, SavingsGoal, FriendRecord, FriendPayment, UserSettings, Asset, Group } from '@/types';
+import { deriveKey, encryptJson, decryptJson, makeVerifier, checkVerifier, newSalt, rememberKey, recallKey, type EncryptedBlob } from '@/lib/crypto';
 import { defaultSettings } from '@/data/seed';
-import { generateId, getCurrentMonth, getMonthYear } from '@/lib/utils';
-import { mongoSync } from '@/lib/mongoSync';
+import { generateId, getMonthYear, setDisplayConfig } from '@/lib/utils';
+import { cloud } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { confetti, haptic } from '@/lib/fx';
 
-interface AppState {
+interface LedgerState {
   transactions: Transaction[];
   budgets: Budget[];
   goals: SavingsGoal[];
   friends: FriendRecord[];
+  assets: Asset[];
+  groups: Group[];
   settings: UserSettings;
-  toasts: Toast[];
 }
 
 export interface Toast {
   id: string;
   message: string;
   type: 'success' | 'error' | 'info';
+  action?: { label: string; onClick: () => void };
 }
 
-interface AppContextType extends AppState {
-  // Cloud sync status
+export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offline';
+
+interface AppContextType extends LedgerState {
+  toasts: Toast[];
+
+  // Cloud sync
   isCloudSynced: boolean;
+  syncStatus: SyncStatus;
+  lastSyncedAt: string | null;
+  refreshCloudData: () => Promise<void>;
+
+  /** Low-level state update used by feature modules (wealth, groups, tax). */
+  mutate: (fn: (s: LedgerState) => LedgerState) => void;
+
+  // End-to-end encryption
+  locked: boolean;
+  unlock: (passphrase: string) => Promise<boolean>;
+  enableEncryption: (passphrase: string) => Promise<void>;
+  disableEncryption: (passphrase: string) => Promise<boolean>;
 
   // Transactions
-  addTransaction: (t: Omit<Transaction, 'id' | 'createdAt'>) => void;
+  addTransaction: (t: Omit<Transaction, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => void;
+  addTransactions: (list: Omit<Transaction, 'id' | 'createdAt'>[]) => void;
   updateTransaction: (id: string, t: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   getMonthlyTransactions: (month: string) => Transaction[];
@@ -52,426 +73,470 @@ interface AppContextType extends AppState {
   settleFriend: (id: string) => void;
 
   // Settings
-  updateSettings: (s: Partial<UserSettings>) => void;
+  updateSettings: (s: Partial<UserSettings>, opts?: { silent?: boolean }) => void;
+  togglePrivacy: () => void;
   resetData: () => void;
   exportData: () => string;
   importData: (json: string) => boolean;
 
   // Toast
-  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  showToast: (message: string, type?: Toast['type'], action?: Toast['action']) => void;
   removeToast: (id: string) => void;
 }
 
-const STORAGE_KEY = 'moneymate_data';
+// Each account gets its own cache so two people sharing a device never see
+// (or upload) each other's data. Signed-out use has its own "guest" slot.
+const LEGACY_KEY = 'moneymate_data';
+const cacheKey = (uid: string | null) => `moneymate:v2:${uid || 'guest'}`;
 
-function loadState(): AppState {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return {
-        transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-        budgets: Array.isArray(parsed.budgets) ? parsed.budgets : [],
-        goals: Array.isArray(parsed.goals) ? parsed.goals : [],
-        friends: Array.isArray(parsed.friends) ? parsed.friends : [],
-        settings: parsed.settings ? { ...defaultSettings, ...parsed.settings } : defaultSettings,
-        toasts: [],
-      };
-    }
-  } catch (e) {
-    console.error('Failed to load local state:', e);
-  }
+const emptyLedger = (): LedgerState => ({
+  transactions: [], budgets: [], goals: [], friends: [], assets: [], groups: [], settings: defaultSettings,
+});
+export type { LedgerState };
+
+function sanitise(parsed: any, fallbackSettings = defaultSettings): LedgerState {
   return {
-    transactions: [],
-    budgets: [],
-    goals: [],
-    friends: [],
-    settings: defaultSettings,
-    toasts: [],
+    transactions: Array.isArray(parsed?.transactions) ? parsed.transactions : [],
+    budgets: Array.isArray(parsed?.budgets) ? parsed.budgets : [],
+    goals: Array.isArray(parsed?.goals) ? parsed.goals : [],
+    friends: Array.isArray(parsed?.friends) ? parsed.friends : [],
+    assets: Array.isArray(parsed?.assets) ? parsed.assets : [],
+    groups: Array.isArray(parsed?.groups) ? parsed.groups : [],
+    settings: { ...fallbackSettings, ...(parsed?.settings || {}) },
   };
 }
 
-function saveState(state: AppState) {
+function readCache(uid: string | null): LedgerState | null {
   try {
-    const { toasts, ...rest } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
-  } catch (e) {
-    console.error('Failed to save state to localStorage:', e);
+    const raw = localStorage.getItem(cacheKey(uid));
+    return raw ? sanitise(JSON.parse(raw)) : null;
+  } catch {
+    return null;
   }
 }
+
+function writeCache(uid: string | null, state: LedgerState) {
+  try {
+    // Encrypted accounts keep no readable copy on the device
+    if (state.settings.encryption?.enabled) { localStorage.removeItem(cacheKey(uid)); return; }
+    localStorage.setItem(cacheKey(uid), JSON.stringify(state));
+  } catch (e) {
+    console.warn('Could not cache ledger locally', e);
+  }
+}
+
+const hasData = (s: LedgerState) => s.transactions.length + s.budgets.length + s.goals.length + s.friends.length + s.assets.length + s.groups.length > 0;
+
+const localeForCurrency = (code: string) => (code === 'INR' ? 'en-IN' : navigator.language || 'en-US');
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(loadState);
   const { user } = useAuth();
   const userId = user?.uid || null;
-  const isInitialLoaded = useRef(false);
 
-  // Toast helper
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const [state, setState] = useState<LedgerState>(() => readCache(null) ?? emptyLedger());
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('local');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+
+  // Cloud writes are only allowed once this account's cloud copy has been read,
+  // otherwise an empty local state could overwrite real data.
+  const readyToPush = useRef(false);
+  const skipNextPush = useRef(false); // state just came *from* the cloud
+  const keyRef = useRef<CryptoKey | null>(null);
+  const pendingBlob = useRef<{ blob: EncryptedBlob; settings: UserSettings } | null>(null);
+  const [locked, setLocked] = useState(false);
+
+  /** What actually goes to the server: plain, or one encrypted blob plus the unlock metadata. */
+  const toPayload = useCallback(async (s: LedgerState) => {
+    if (s.settings.encryption?.enabled && keyRef.current) {
+      const { encryption, theme, accent, currency, currencySymbol } = s.settings;
+      return {
+        transactions: [], budgets: [], goals: [], friends: [], assets: [], groups: [],
+        settings: { ...defaultSettings, encryption, theme, accent, currency, currencySymbol, name: '' },
+        encrypted: await encryptJson(keyRef.current, s),
+      };
+    }
+    return { ...s, encrypted: null };
+  }, []);
+  const loadedFor = useRef<string | null | undefined>(undefined);
+
+  // Keep formatCurrency() in step with settings. Runs during render on purpose
+  // so the very first paint already uses the right currency and privacy mode.
+  setDisplayConfig({
+    currency: state.settings.currency || 'INR',
+    locale: localeForCurrency(state.settings.currency || 'INR'),
+    privacy: Boolean(state.settings.privacyMode),
+  });
+
+  // ---- Toasts ---------------------------------------------------------------
+  const removeToast = useCallback((id: string) => setToasts(ts => ts.filter(t => t.id !== id)), []);
+
+  const showToast = useCallback((message: string, type: Toast['type'] = 'success', action?: Toast['action']) => {
     const id = generateId();
-    setState(s => ({ ...s, toasts: [...s.toasts, { id, message, type }] }));
-    setTimeout(() => {
-      setState(s => ({ ...s, toasts: s.toasts.filter(t => t.id !== id) }));
-    }, 3500);
-  }, []);
+    setToasts(ts => [...ts.slice(-2), { id, message, type, action }]);
+    setTimeout(() => removeToast(id), action ? 6000 : 3500);
+  }, [removeToast]);
 
-  const removeToast = useCallback((id: string) => {
-    setState(s => ({ ...s, toasts: s.toasts.filter(t => t.id !== id) }));
-  }, []);
+  // ---- Load: per-user cache first, then the cloud copy wins ----------------
+  const derivedName = user?.displayName?.trim() || (user?.email ? user.email.split('@')[0] : '');
 
-  // Save to localStorage whenever local state changes
-  useEffect(() => {
-    saveState(state);
-  }, [state.transactions, state.budgets, state.goals, state.friends, state.settings]);
+  const loadFromCloud = useCallback(async (uid: string) => {
+    setSyncStatus('syncing');
+    const remote = await cloud.fetchLedger();
+    if (loadedFor.current !== uid) return; // user switched mid-request
 
-  // MongoDB Atlas Real-time synchronization
-  useEffect(() => {
-    if (!userId) {
-      isInitialLoaded.current = true;
+    if (!remote) {
+      setSyncStatus('offline');
+      readyToPush.current = true; // keep working locally; next change retries
       return;
     }
 
-    isInitialLoaded.current = false;
-
-    // Automatically derive display name from Google Auth or email prefix
-    const derivedName = user?.displayName?.trim() || 
-      (user?.email ? user.email.split('@')[0] : 'Investor');
-
-    // Fetch complete ledger from MongoDB Atlas and safely merge with local cache
-    mongoSync.fetchUserLedger(userId).then(cloudData => {
-      if (cloudData) {
-        console.log('[MongoDB] Loaded cloud ledger for user:', userId, {
-          txCount: cloudData.transactions?.length || 0,
-        });
-
-        setState(s => {
-          // Merge transactions by ID: cloud takes priority, local items with new IDs are preserved
-          const txMap = new Map<string, Transaction>();
-          s.transactions.forEach(t => txMap.set(t.id, t));
-          (cloudData.transactions || []).forEach(t => txMap.set(t.id, t));
-          const mergedTransactions = Array.from(txMap.values()).sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-
-          // Merge budgets by ID
-          const budgetMap = new Map<string, Budget>();
-          s.budgets.forEach(b => budgetMap.set(b.id, b));
-          (cloudData.budgets || []).forEach(b => budgetMap.set(b.id, b));
-
-          // Merge goals by ID
-          const goalMap = new Map<string, SavingsGoal>();
-          s.goals.forEach(g => goalMap.set(g.id, g));
-          (cloudData.goals || []).forEach(g => goalMap.set(g.id, g));
-
-          // Merge friends by ID
-          const friendMap = new Map<string, FriendRecord>();
-          s.friends.forEach(f => friendMap.set(f.id, f));
-          (cloudData.friends || []).forEach(f => friendMap.set(f.id, f));
-
-          return {
-            ...s,
-            transactions: mergedTransactions,
-            budgets: Array.from(budgetMap.values()),
-            goals: Array.from(goalMap.values()),
-            friends: Array.from(friendMap.values()),
-            settings: {
-              ...(cloudData.settings || s.settings),
-              name: cloudData.settings?.name && cloudData.settings.name !== 'Atul' && cloudData.settings.name !== 'Investor'
-                ? cloudData.settings.name 
-                : derivedName,
-            },
-          };
-        });
-      } else {
-        // If no cloud data found, initialize settings with their name
-        setState(s => ({
-          ...s,
-          settings: {
-            ...s.settings,
-            name: s.settings?.name && s.settings.name !== 'Investor' ? s.settings.name : derivedName,
-          }
-        }));
-      }
-
-      isInitialLoaded.current = true;
-    }).catch(err => {
-      console.error('[MongoDB Error] Initial ledger sync error:', err);
-      isInitialLoaded.current = true;
-    });
-  }, [userId, user?.displayName, user?.email]);
-
-  // Push updates to MongoDB Atlas automatically whenever data changes (guarded by isInitialLoaded)
-  useEffect(() => {
-    if (!userId || !isInitialLoaded.current) return;
-    const timer = setTimeout(() => {
-      mongoSync.saveUserLedger(userId, {
-        transactions: state.transactions,
-        budgets: state.budgets,
-        goals: state.goals,
-        friends: state.friends,
-        settings: state.settings,
-        userInfo: {
-          email: user?.email || null,
-          displayName: user?.displayName || state.settings?.name || 'Investor'
+    if (remote.exists && remote.encrypted) {
+      const meta = { ...defaultSettings, ...(remote.settings || {}) } as UserSettings;
+      keyRef.current = keyRef.current || (await recallKey());
+      if (keyRef.current) {
+        try {
+          const plain = await decryptJson<LedgerState>(keyRef.current, remote.encrypted);
+          skipNextPush.current = true;
+          setState(sanitise(plain, meta));
+          setLocked(false);
+        } catch {
+          keyRef.current = null;
         }
+      }
+      if (!keyRef.current) {
+        pendingBlob.current = { blob: remote.encrypted, settings: meta };
+        setState(s => ({ ...emptyLedger(), settings: { ...s.settings, ...meta } }));
+        setLocked(true);
+        setSyncStatus('synced');
+        return; // stay read-only until unlocked
+      }
+    } else if (remote.exists) {
+      skipNextPush.current = true;
+      setState(s => {
+        const next = sanitise(remote, s.settings);
+        if (!next.settings.name) next.settings.name = derivedName;
+        writeCache(uid, next);
+        return next;
       });
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [userId, user?.email, user?.displayName, state.transactions, state.budgets, state.goals, state.friends, state.settings]);
+    } else {
+      // First sign-in on this account: adopt any data made before signing in
+      // (guest cache, or the pre-v2 shared key), then upload it.
+      setState(s => {
+        if (hasData(s)) return s;
+        try {
+          const legacy = localStorage.getItem(LEGACY_KEY);
+          if (legacy) {
+            localStorage.removeItem(LEGACY_KEY);
+            return sanitise(JSON.parse(legacy), s.settings);
+          }
+        } catch { /* ignore corrupt legacy data */ }
+        const guest = readCache(null);
+        return guest && hasData(guest) ? guest : s;
+      });
+    }
+    setLastSyncedAt(remote.updatedAt || new Date().toISOString());
+    setSyncStatus('synced');
+    readyToPush.current = true;
+  }, [derivedName]);
 
-  // Transactions
-  const addTransaction = useCallback((t: Omit<Transaction, 'id' | 'createdAt'>) => {
-    const newT: Transaction = { ...t, id: generateId(), createdAt: new Date().toISOString() };
-    setState(s => ({ ...s, transactions: [newT, ...s.transactions] }));
-    showToast(`${t.type === 'income' ? 'Inflow' : 'Outflow'} recorded successfully!`);
+  useEffect(() => {
+    if (loadedFor.current === userId) return;
+    loadedFor.current = userId;
+    readyToPush.current = false;
+
+    const cached = readCache(userId) ?? emptyLedger();
+    if (!cached.settings.name && derivedName) cached.settings.name = derivedName;
+    setState(cached);
+
+    if (!userId) {
+      setSyncStatus('local');
+      readyToPush.current = true;
+      return;
+    }
+    loadFromCloud(userId);
+  }, [userId, derivedName, loadFromCloud]);
+
+  // ---- Persist: cache immediately, push to cloud debounced -----------------
+  useEffect(() => {
+    if (loadedFor.current !== userId) return;
+    writeCache(userId, state);
+    if (!userId || !readyToPush.current) return;
+    if (skipNextPush.current) {
+      skipNextPush.current = false;
+      return;
+    }
+
+    setSyncStatus('syncing');
+    if (locked) return;
+    const timer = setTimeout(async () => {
+      const ok = await cloud.saveLedger(await toPayload(state));
+      setSyncStatus(ok ? 'synced' : 'offline');
+      if (ok) setLastSyncedAt(new Date().toISOString());
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [state, userId, locked, toPayload]);
+
+  // Retry when the connection comes back
+  useEffect(() => {
+    const retry = () => {
+      if (userId && syncStatus === 'offline') setState(s => ({ ...s }));
+    };
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [userId, syncStatus]);
+
+  const refreshCloudData = useCallback(async () => {
+    if (!userId) return;
+    await loadFromCloud(userId);
+    showToast('Synced with your account', 'info');
+  }, [userId, loadFromCloud, showToast]);
+
+  const mutate = useCallback((fn: (s: LedgerState) => LedgerState) => setState(fn), []);
+
+  // ---- Encryption -----------------------------------------------------------
+  const unlock = useCallback(async (passphrase: string) => {
+    const pending = pendingBlob.current;
+    const meta = pending?.settings.encryption;
+    if (!pending || !meta) return false;
+    const key = await deriveKey(passphrase, meta.salt);
+    if (!(await checkVerifier(key, meta.verifier))) return false;
+    const plain = await decryptJson<LedgerState>(key, pending.blob);
+    keyRef.current = key;
+    await rememberKey(key);
+    pendingBlob.current = null;
+    skipNextPush.current = true;
+    setState(sanitise(plain, pending.settings));
+    setLocked(false);
+    readyToPush.current = true;
+    return true;
+  }, []);
+
+  const enableEncryption = useCallback(async (passphrase: string) => {
+    const salt = newSalt();
+    const key = await deriveKey(passphrase, salt);
+    keyRef.current = key;
+    await rememberKey(key);
+    const verifier = await makeVerifier(key);
+    setState(s => ({ ...s, settings: { ...s.settings, encryption: { enabled: true, salt, verifier } } }));
+    showToast('Encryption is on. Keep your passphrase safe: it can’t be recovered.');
   }, [showToast]);
 
+  const disableEncryption = useCallback(async (passphrase: string) => {
+    const meta = state.settings.encryption;
+    if (!meta) return true;
+    const key = await deriveKey(passphrase, meta.salt);
+    if (!(await checkVerifier(key, meta.verifier))) return false;
+    keyRef.current = null;
+    await rememberKey(null);
+    setState(s => ({ ...s, settings: { ...s.settings, encryption: undefined } }));
+    showToast('Encryption turned off', 'info');
+    return true;
+  }, [state.settings.encryption, showToast]);
+
+  // ---- Transactions ---------------------------------------------------------
+  const addTransaction = useCallback((t: Omit<Transaction, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => {
+    const newT: Transaction = { ...t, id: generateId(), createdAt: new Date().toISOString() };
+    setState(s => ({ ...s, transactions: [newT, ...s.transactions] }));
+    haptic(10);
+    if (!opts?.silent) showToast(`${t.type === 'income' ? 'Income' : t.type === 'transfer' ? 'Transfer' : 'Expense'} saved`);
+  }, [showToast]);
+
+  const addTransactions = useCallback((list: Omit<Transaction, 'id' | 'createdAt'>[]) => {
+    const now = new Date().toISOString();
+    const items = list.map(t => ({ ...t, id: generateId(), createdAt: now }));
+    setState(s => ({
+      ...s,
+      transactions: [...items, ...s.transactions].sort((a, b) => +new Date(b.date) - +new Date(a.date)),
+    }));
+  }, []);
+
   const updateTransaction = useCallback((id: string, updates: Partial<Transaction>) => {
-    setState(s => {
-      const updated = s.transactions.map(t => {
-        if (t.id === id) {
-          return { ...t, ...updates };
-        }
-        return t;
-      });
-      return { ...s, transactions: updated };
-    });
-    showToast('Transaction updated!');
+    setState(s => ({ ...s, transactions: s.transactions.map(t => (t.id === id ? { ...t, ...updates } : t)) }));
+    showToast('Transaction updated');
   }, [showToast]);
 
   const deleteTransaction = useCallback((id: string) => {
-    setState(s => ({
-      ...s,
-      transactions: s.transactions.filter(t => t.id !== id),
-    }));
-    showToast('Transaction deleted!', 'info');
+    let removed: Transaction | undefined;
+    let index = 0;
+    setState(s => {
+      index = s.transactions.findIndex(t => t.id === id);
+      removed = s.transactions[index];
+      return { ...s, transactions: s.transactions.filter(t => t.id !== id) };
+    });
+    showToast('Transaction deleted', 'info', {
+      label: 'Undo',
+      onClick: () => {
+        if (!removed) return;
+        const item = removed;
+        setState(s => {
+          const next = [...s.transactions];
+          next.splice(Math.min(index, next.length), 0, item);
+          return { ...s, transactions: next };
+        });
+      },
+    });
   }, [showToast]);
 
-  const getMonthlyTransactions = useCallback((month: string) => {
-    return state.transactions.filter(t => getMonthYear(t.date) === month);
-  }, [state.transactions]);
+  const getMonthlyTransactions = useCallback(
+    (month: string) => state.transactions.filter(t => getMonthYear(t.date) === month),
+    [state.transactions]
+  );
 
-  const getMonthlyIncome = useCallback((month: string) => {
-    return state.transactions
-      .filter(t => t.type === 'income' && getMonthYear(t.date) === month)
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [state.transactions]);
+  const getMonthlyIncome = useCallback(
+    (month: string) => state.transactions.filter(t => t.type === 'income' && getMonthYear(t.date) === month).reduce((s, t) => s + t.amount, 0),
+    [state.transactions]
+  );
 
-  const getMonthlyExpenses = useCallback((month: string) => {
-    return state.transactions
-      .filter(t => t.type === 'expense' && getMonthYear(t.date) === month)
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [state.transactions]);
+  const getMonthlyExpenses = useCallback(
+    (month: string) => state.transactions.filter(t => t.type === 'expense' && getMonthYear(t.date) === month).reduce((s, t) => s + t.amount, 0),
+    [state.transactions]
+  );
 
-  const getCategorySpending = useCallback((month: string, category: string) => {
-    return state.transactions
-      .filter(t => t.type === 'expense' && getMonthYear(t.date) === month && t.category === category)
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [state.transactions]);
+  const getCategorySpending = useCallback(
+    (month: string, category: string) =>
+      state.transactions
+        .filter(t => t.type === 'expense' && getMonthYear(t.date) === month && t.category === category)
+        .reduce((s, t) => s + t.amount, 0),
+    [state.transactions]
+  );
 
-  // Budgets
+  // ---- Budgets --------------------------------------------------------------
   const addBudget = useCallback((b: Omit<Budget, 'id'>) => {
-    const newB = { ...b, id: generateId() };
-    setState(s => ({ ...s, budgets: [...s.budgets, newB] }));
-    showToast('Budget plan created!');
+    setState(s => ({ ...s, budgets: [...s.budgets, { ...b, id: generateId() }] }));
+    showToast('Budget created');
   }, [showToast]);
 
   const updateBudget = useCallback((id: string, updates: Partial<Budget>) => {
-    setState(s => {
-      const updated = s.budgets.map(b => {
-        if (b.id === id) {
-          return { ...b, ...updates };
-        }
-        return b;
-      });
-      return { ...s, budgets: updated };
-    });
-    showToast('Budget updated!');
+    setState(s => ({ ...s, budgets: s.budgets.map(b => (b.id === id ? { ...b, ...updates } : b)) }));
+    showToast('Budget updated');
   }, [showToast]);
 
   const deleteBudget = useCallback((id: string) => {
     setState(s => ({ ...s, budgets: s.budgets.filter(b => b.id !== id) }));
-    showToast('Budget removed!', 'info');
+    showToast('Budget removed', 'info');
   }, [showToast]);
 
-  // Goals
+  // ---- Goals ----------------------------------------------------------------
   const addGoal = useCallback((g: Omit<SavingsGoal, 'id' | 'createdAt'>) => {
-    const newG = { ...g, id: generateId(), createdAt: new Date().toISOString() };
-    setState(s => ({
-      ...s,
-      goals: [...s.goals, newG],
-    }));
-    showToast('Capital goal created!');
+    setState(s => ({ ...s, goals: [...s.goals, { ...g, id: generateId(), createdAt: new Date().toISOString() }] }));
+    showToast('Goal created');
   }, [showToast]);
 
   const updateGoal = useCallback((id: string, updates: Partial<SavingsGoal>) => {
-    setState(s => {
-      const updated = s.goals.map(g => {
-        if (g.id === id) {
-          return { ...g, ...updates };
-        }
-        return g;
-      });
-      return { ...s, goals: updated };
-    });
-    showToast('Goal updated!');
+    setState(s => ({ ...s, goals: s.goals.map(g => (g.id === id ? { ...g, ...updates } : g)) }));
+    showToast('Goal updated');
   }, [showToast]);
 
   const deleteGoal = useCallback((id: string) => {
     setState(s => ({ ...s, goals: s.goals.filter(g => g.id !== id) }));
-    showToast('Goal removed!', 'info');
+    showToast('Goal removed', 'info');
   }, [showToast]);
 
   const addMoneyToGoal = useCallback((id: string, amount: number) => {
-    setState(s => {
-      const updated = s.goals.map(g => {
-        if (g.id !== id) return g;
-        const newSaved = Math.min(g.savedAmount + amount, g.targetAmount);
-        return { ...g, savedAmount: newSaved };
-      });
-      return { ...s, goals: updated };
-    });
-    showToast('Capital deposited to goal!');
-  }, [showToast]);
+    const goal = state.goals.find(g => g.id === id);
+    if (!goal) return;
+    const room = Math.max(0, goal.targetAmount - goal.savedAmount);
+    const added = Math.min(amount, room);
+    setState(s => ({ ...s, goals: s.goals.map(g => (g.id === id ? { ...g, savedAmount: g.savedAmount + added } : g)) }));
+    if (added < amount) showToast(`Added ${added.toLocaleString()} — the goal only needed that much`, 'info');
+    else if (goal.savedAmount + added >= goal.targetAmount) { showToast(`${goal.name} is fully funded!`); confetti(); haptic([20, 40, 20]); }
+    else showToast(`Added to ${goal.name}`);
+  }, [state.goals, showToast]);
 
-  // Friends
+  // ---- Friends --------------------------------------------------------------
   const addFriend = useCallback((f: Omit<FriendRecord, 'id' | 'payments'>) => {
-    const newF = { ...f, id: generateId(), payments: [] };
-    setState(s => ({
-      ...s,
-      friends: [...s.friends, newF],
-    }));
-    showToast('IOU record added!');
+    setState(s => ({ ...s, friends: [...s.friends, { ...f, id: generateId(), payments: [] }] }));
+    showToast('IOU added');
   }, [showToast]);
 
   const updateFriend = useCallback((id: string, updates: Partial<FriendRecord>) => {
-    setState(s => {
-      const updated = s.friends.map(f => {
-        if (f.id === id) {
-          return { ...f, ...updates };
-        }
-        return f;
-      });
-      return { ...s, friends: updated };
-    });
-    showToast('Record updated!');
+    setState(s => ({ ...s, friends: s.friends.map(f => (f.id === id ? { ...f, ...updates } : f)) }));
+    showToast('IOU updated');
   }, [showToast]);
 
   const deleteFriend = useCallback((id: string) => {
     setState(s => ({ ...s, friends: s.friends.filter(f => f.id !== id) }));
-    showToast('Record deleted!', 'info');
+    showToast('IOU deleted', 'info');
   }, [showToast]);
 
   const addPayment = useCallback((friendId: string, payment: Omit<FriendPayment, 'id'>) => {
-    setState(s => {
-      const updated = s.friends.map(f => {
+    setState(s => ({
+      ...s,
+      friends: s.friends.map(f => {
         if (f.id !== friendId) return f;
-        const newPayment: FriendPayment = { ...payment, id: generateId() };
-        const updatedPayments = [...f.payments, newPayment];
-        const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
-        const newStatus = totalPaid >= f.amount ? 'settled' : 'partially-paid';
-        return { ...f, payments: updatedPayments, status: newStatus as FriendRecord['status'] };
-      });
-      return { ...s, friends: updated };
-    });
-    showToast('Payment recorded!');
+        const payments = [...f.payments, { ...payment, id: generateId() }];
+        const paid = payments.reduce((sum, p) => sum + p.amount, 0);
+        return { ...f, payments, status: (paid >= f.amount ? 'settled' : 'partially-paid') as FriendRecord['status'] };
+      }),
+    }));
+    showToast('Payment recorded');
   }, [showToast]);
 
   const settleFriend = useCallback((id: string) => {
-    setState(s => {
-      const updated = s.friends.map(f => {
-        if (f.id !== id) return f;
-        return { ...f, status: 'settled' as const };
-      });
-      return { ...s, friends: updated };
-    });
-    showToast('Marked as settled!');
+    setState(s => ({ ...s, friends: s.friends.map(f => (f.id === id ? { ...f, status: 'settled' as const } : f)) }));
+    showToast('Marked as settled');
   }, [showToast]);
 
-  // Settings
-  const updateSettings = useCallback((updates: Partial<UserSettings>) => {
-    setState(s => {
-      const newSettings = { ...s.settings, ...updates };
-      return { ...s, settings: newSettings };
-    });
-    showToast('Settings updated!');
+  // ---- Settings & data ------------------------------------------------------
+  const updateSettings = useCallback((updates: Partial<UserSettings>, opts?: { silent?: boolean }) => {
+    setState(s => ({ ...s, settings: { ...s.settings, ...updates } }));
+    if (!opts?.silent) showToast('Settings saved');
   }, [showToast]);
+
+  const togglePrivacy = useCallback(() => {
+    setState(s => ({ ...s, settings: { ...s.settings, privacyMode: !s.settings.privacyMode } }));
+  }, []);
 
   const resetData = useCallback(() => {
-    const emptyState: AppState = {
-      transactions: [],
-      budgets: [],
-      goals: [],
-      friends: [],
-      settings: state.settings,
-      toasts: [],
-    };
-    setState(emptyState);
-    if (userId) {
-      mongoSync.saveUserLedger(userId, {
-        transactions: [],
-        budgets: [],
-        goals: [],
-        friends: [],
-        settings: state.settings,
-      });
-    }
-    showToast('Ledger wiped clean! 0 records remaining.', 'info');
-  }, [userId, state.settings, showToast]);
+    setState(s => ({ ...emptyLedger(), settings: s.settings }));
+    showToast('All records deleted', 'info');
+  }, [showToast]);
 
-  const exportData = useCallback((): string => {
-    return JSON.stringify({
-      transactions: state.transactions,
-      budgets: state.budgets,
-      goals: state.goals,
-      friends: state.friends,
-      settings: state.settings,
-    }, null, 2);
-  }, [state]);
+  const exportData = useCallback(
+    () => JSON.stringify({ app: 'MoneyMate', version: 2, exportedAt: new Date().toISOString(), ...state }, null, 2),
+    [state]
+  );
 
   const importData = useCallback((jsonStr: string): boolean => {
     try {
       const parsed = JSON.parse(jsonStr);
-      if (parsed && typeof parsed === 'object') {
-        const nextState = {
-          transactions: parsed.transactions || state.transactions,
-          budgets: parsed.budgets || state.budgets,
-          goals: parsed.goals || state.goals,
-          friends: parsed.friends || state.friends,
-          settings: parsed.settings || state.settings,
-        };
-        setState(s => ({ ...s, ...nextState }));
-        if (userId) {
-          mongoSync.saveUserLedger(userId, {
-            ...nextState,
-            userInfo: {
-              email: user?.email || null,
-              displayName: user?.displayName || nextState.settings?.name || 'Investor'
-            }
-          });
-        }
-        showToast('Data backup restored and synchronized!', 'success');
-        return true;
-      }
+      if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.transactions)) return false;
+      setState(s => sanitise(parsed, s.settings));
+      showToast('Backup restored');
+      return true;
     } catch (e) {
       console.error('Import failed:', e);
+      return false;
     }
-    return false;
-  }, [userId, state, user, showToast]);
+  }, [showToast]);
 
-  const value: AppContextType = {
+  const value = useMemo<AppContextType>(() => ({
     ...state,
+    toasts,
     isCloudSynced: Boolean(userId),
-    addTransaction, updateTransaction, deleteTransaction,
+    syncStatus,
+    lastSyncedAt,
+    refreshCloudData,
+    mutate, locked, unlock, enableEncryption, disableEncryption,
+    addTransaction, addTransactions, updateTransaction, deleteTransaction,
     getMonthlyTransactions, getMonthlyIncome, getMonthlyExpenses, getCategorySpending,
     addBudget, updateBudget, deleteBudget,
     addGoal, updateGoal, deleteGoal, addMoneyToGoal,
     addFriend, updateFriend, deleteFriend, addPayment, settleFriend,
-    updateSettings, resetData, exportData, importData,
+    updateSettings, togglePrivacy, resetData, exportData, importData,
     showToast, removeToast,
-  };
+  }), [
+    state, toasts, userId, syncStatus, lastSyncedAt, refreshCloudData,
+    mutate, locked, unlock, enableEncryption, disableEncryption,
+    addTransaction, addTransactions, updateTransaction, deleteTransaction,
+    getMonthlyTransactions, getMonthlyIncome, getMonthlyExpenses, getCategorySpending,
+    addBudget, updateBudget, deleteBudget, addGoal, updateGoal, deleteGoal, addMoneyToGoal,
+    addFriend, updateFriend, deleteFriend, addPayment, settleFriend,
+    updateSettings, togglePrivacy, resetData, exportData, importData, showToast, removeToast,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

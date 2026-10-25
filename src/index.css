@@ -1,42 +1,51 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. Every colour in the app is a token so the light theme is a
+ * pure variable swap: no !important overrides, nothing left dark by accident.
+ */
 @theme {
-  /* Obsidian & Champagne Palette */
   --color-mm-bg: #0B0B0D;
   --color-mm-bg2: #121215;
-  --color-mm-elevated: #19191D;
   --color-mm-card: #17171B;
-  
-  /* Primary & Secondary Typography */
+  --color-mm-elevated: #1B1B20;
+
   --color-mm-text: #F5F1E8;
   --color-mm-text2: #B6B0A5;
-  --color-mm-muted: #77736D;
-  
-  /* Champagne Gold Accents */
+  --color-mm-muted: #8C877E; /* was #77736D: 4.1:1, now 5.3:1 on bg */
+
   --color-mm-gold: #D6BC86;
   --color-mm-gold-light: #E9D8AF;
-  
-  /* Financial Indicators */
+  --color-mm-on-gold: #0B0B0D;
+  --color-mm-line: #D6BC86;
+
   --color-mm-positive: #83C9A5;
-  --color-mm-negative: #D98282;
+  --color-mm-negative: #E08C8C;
   --color-mm-warning: #D9B46F;
 
-  /* Subtle Borders */
-  --color-mm-border: rgba(214, 188, 134, 0.16);
-  --color-mm-border-light: rgba(214, 188, 134, 0.24);
-
-  /* Legacy aliases redirected to luxury palette */
-  --color-mm-emerald: #D6BC86;
-  --color-mm-mint: #E9D8AF;
-  --color-mm-mint2: #D6BC86;
-  --color-mm-indigo: #D6BC86;
-  --color-mm-violet: #B6B0A5;
-  --color-mm-glass: rgba(23, 23, 27, 0.75);
-  --color-mm-glass-elevated: rgba(25, 25, 29, 0.88);
-
-  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
 }
+
+:root.light, .light {
+  --color-mm-bg: #F6F3EC;
+  --color-mm-bg2: #EDE8DC;
+  --color-mm-card: #FFFFFF;
+  --color-mm-elevated: #FFFFFF;
+  --color-mm-text: #1B1915;
+  --color-mm-text2: #4A453D;
+  --color-mm-muted: #6B655B;
+  --color-mm-gold: #8F6B2C;
+  --color-mm-gold-light: #A9853F;
+  --color-mm-on-gold: #FFFDF7;
+  --color-mm-line: #8F6B2C;
+  --color-mm-positive: #2B7A52;
+  --color-mm-negative: #B0433E;
+  --color-mm-warning: #966710;
+  color-scheme: light;
+}
+
+:root { color-scheme: dark; }
 
 * {
   scrollbar-width: thin;
@@ -58,14 +67,16 @@
 }
 
 html {
-  background-color: #0B0B0D;
-  color: #F5F1E8;
+  background-color: var(--color-mm-bg);
+  color: var(--color-mm-text);
+  transition: background-color 0.3s ease;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: #0B0B0D;
-  color: #F5F1E8;
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  background-color: var(--color-mm-bg);
+  color: var(--color-mm-text);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -75,7 +86,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   position: relative;
-  background-color: #0B0B0D;
+  background-color: var(--color-mm-bg);
 }
 
 /* ========================================================
@@ -84,43 +95,41 @@ body {
 
 /* Standard Luxury Card */
 .glass-card {
-  background-color: #17171B;
-  border: 1px solid rgba(214, 188, 134, 0.12);
+  background-color: var(--color-mm-card);
+  border: 1px solid color-mix(in oklab, var(--color-mm-line) 13%, transparent);
   border-radius: 20px;
   box-shadow: 0 10px 25px -10px rgba(0, 0, 0, 0.6);
   transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .glass-card:hover {
-  border-color: rgba(214, 188, 134, 0.24);
-  box-shadow: 0 16px 35px -10px rgba(0, 0, 0, 0.7);
-  transform: translateY(-1.5px);
+  border-color: color-mix(in oklab, var(--color-mm-line) 26%, transparent);
 }
 
 /* Elevated Surface (modals, primary balance card, highlights) */
 .glass-card-elevated {
-  background-color: #19191D;
-  border: 1px solid rgba(214, 188, 134, 0.18);
+  background-color: var(--color-mm-elevated);
+  border: 1px solid color-mix(in oklab, var(--color-mm-line) 20%, transparent);
   border-radius: 22px;
   box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.75);
 }
 
 /* Subtle Pill / Row Material */
 .glass-subtle {
-  background-color: rgba(23, 23, 27, 0.7);
-  border: 1px solid rgba(214, 188, 134, 0.1);
+  background-color: color-mix(in oklab, var(--color-mm-card) 75%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-mm-line) 11%, transparent);
   border-radius: 14px;
   transition: all 0.2s ease;
 }
 
 .glass-subtle:hover {
-  border-color: rgba(214, 188, 134, 0.22);
-  background-color: rgba(25, 25, 29, 0.9);
+  border-color: color-mix(in oklab, var(--color-mm-line) 24%, transparent);
+  background-color: var(--color-mm-card);
 }
 
 /* Floating iOS Bottom Dock */
 .liquid-dock {
-  background-color: rgba(18, 18, 21, 0.92);
+  background-color: color-mix(in oklab, var(--color-mm-bg2) 92%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(214, 188, 134, 0.16);
@@ -169,8 +178,8 @@ body {
 .progress-bar {
   height: 6px;
   border-radius: 999px;
-  background-color: #121215;
-  border: 1px solid rgba(214, 188, 134, 0.1);
+  background-color: var(--color-mm-bg2);
+  border: 1px solid color-mix(in oklab, var(--color-mm-line) 11%, transparent);
   overflow: hidden;
 }
 
@@ -189,9 +198,9 @@ body {
 
 /* Active navigation state */
 .nav-active {
-  background-color: rgba(214, 188, 134, 0.1);
-  border: 1px solid rgba(214, 188, 134, 0.28);
-  color: #F5F1E8;
+  background-color: color-mix(in oklab, var(--color-mm-gold) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-mm-gold) 28%, transparent);
+  color: var(--color-mm-text);
 }
 
 /* Number display with tabular numerals */
@@ -209,75 +218,113 @@ body {
   pointer-events: none;
 }
 
+
+.light .glass-card, .light .glass-card-elevated {
+  box-shadow: 0 1px 2px rgba(60, 45, 20, 0.05), 0 12px 32px -14px rgba(60, 45, 20, 0.18);
+}
+.light .overlay-bg { background: rgba(236, 230, 216, 0.75); }
+.light .liquid-dock { box-shadow: 0 16px 40px -12px rgba(60, 45, 20, 0.25); }
+
 /* ========================================================
-   LUXURY IVORY & CHAMPAGNE LIGHT THEME
+   ACCESSIBILITY & MOTION
    ======================================================== */
-html.light, body.light, .light {
-  background-color: #F8F6F0 !important;
-  color: #17171B !important;
+:focus-visible {
+  outline: 2px solid var(--color-mm-gold);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
-.light .glass-card {
-  background-color: #FFFFFF !important;
-  border-color: rgba(180, 150, 90, 0.22) !important;
-  box-shadow: 0 10px 30px -10px rgba(180, 150, 90, 0.15), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.light .glass-card:hover {
-  border-color: rgba(180, 150, 90, 0.4) !important;
-  box-shadow: 0 16px 36px -10px rgba(180, 150, 90, 0.22) !important;
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Privacy mode: blur anything explicitly marked sensitive (charts, avatars of amounts) */
+.privacy .sensitive { filter: blur(8px); transition: filter 0.2s ease; }
+.privacy .sensitive:hover { filter: none; }
+
+/* Health score ring draw-in */
+@keyframes mm-ring { from { stroke-dashoffset: var(--mm-ring-full); } }
+.mm-ring { animation: mm-ring 1.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ========================================================
+   AMBIENT LIGHT, GRAIN & SPOTLIGHT
+   ======================================================== */
+.mm-ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.mm-ambient i {
+  position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.5;
+  animation: mm-drift 26s ease-in-out infinite alternate;
+}
+.mm-ambient i:nth-child(1) { width: 46vw; height: 46vw; left: -8vw; top: -18vw; background: color-mix(in oklab, var(--color-mm-gold) 16%, transparent); }
+.mm-ambient i:nth-child(2) { width: 38vw; height: 38vw; right: -10vw; top: 18vh; background: color-mix(in oklab, var(--color-mm-positive) 9%, transparent); animation-duration: 32s; animation-delay: -8s; }
+.mm-ambient i:nth-child(3) { width: 34vw; height: 34vw; left: 30vw; bottom: -20vw; background: color-mix(in oklab, var(--color-mm-gold-light) 10%, transparent); animation-duration: 38s; animation-delay: -16s; }
+.light .mm-ambient i { opacity: 0.8; }
+@keyframes mm-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(6vw, 4vh, 0) scale(1.12); }
+  100% { transform: translate3d(-4vw, 8vh, 0) scale(0.95); }
 }
 
-.light .glass-card-elevated {
-  background-color: #FFFFFF !important;
-  border-color: rgba(180, 150, 90, 0.28) !important;
-  box-shadow: 0 20px 45px -12px rgba(180, 150, 90, 0.2) !important;
+/* Film grain keeps the dark surfaces from looking flat */
+.mm-grain {
+  position: fixed; inset: -50%; z-index: 1; pointer-events: none; opacity: 0.05;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  animation: mm-grain 1.2s steps(6) infinite;
+}
+.light .mm-grain { opacity: 0.035; }
+@keyframes mm-grain {
+  0%,100% { transform: translate(0,0); } 20% { transform: translate(-3%,2%); } 40% { transform: translate(2%,-3%); }
+  60% { transform: translate(-2%,-1%); } 80% { transform: translate(3%,3%); }
 }
 
-.light header,
-.light aside {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(180, 150, 90, 0.18) !important;
+/* Cursor-following glow on cards */
+.glass-card, .glass-card-elevated, .spotlight { position: relative; isolation: isolate; }
+.glass-card::before, .glass-card-elevated::before, .spotlight::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklab, var(--color-mm-gold) 9%, transparent), transparent 60%);
+  opacity: var(--spot, 0); transition: opacity 0.35s ease;
+}
+/* …and a lit edge where the cursor is */
+.glass-card:not(.specular-sheen)::after, .glass-card-elevated:not(.specular-sheen)::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; padding: 1px;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklab, var(--color-mm-gold) 55%, transparent), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: var(--spot, 0); transition: opacity 0.35s ease;
 }
 
-.light .text-\[\#F5F1E8\] {
-  color: #1A1A1F !important;
+/* Shimmer for loading states and the "new" pill */
+.mm-shimmer {
+  background: linear-gradient(100deg, transparent 20%, color-mix(in oklab, var(--color-mm-gold-light) 28%, transparent) 50%, transparent 80%) no-repeat;
+  background-size: 200% 100%; animation: mm-shimmer 2.4s ease-in-out infinite;
+}
+@keyframes mm-shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+/* Gold text with a slow sheen, used sparingly for hero numbers */
+.mm-gold-text {
+  background: linear-gradient(110deg, var(--color-mm-gold) 0%, var(--color-mm-gold-light) 45%, var(--color-mm-gold) 60%, var(--color-mm-gold-light) 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: mm-shimmer 6s linear infinite;
 }
 
-.light .text-\[\#B6B0A5\] {
-  color: #4A4640 !important;
-}
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation: none !important; }
 
-.light .text-\[\#77736D\] {
-  color: #7A756D !important;
-}
-
-.light .bg-\[\#0B0B0D\] {
-  background-color: #F8F6F0 !important;
-}
-
-.light .bg-\[\#121215\],
-.light .bg-\[\#17171B\],
-.light .bg-\[\#19191D\] {
-  background-color: #F0ECE1 !important;
-}
-
-.light .border-\[rgba\(214\,188\,134\,0\.12\)\],
-.light .border-\[rgba\(214\,188\,134\,0\.16\)\],
-.light .border-\[rgba\(214\,188\,134\,0\.18\)\],
-.light .border-\[rgba\(214\,188\,134\,0\.24\)\] {
-  border-color: rgba(180, 150, 90, 0.25) !important;
-}
-
-.light input,
-.light select,
-.light textarea {
-  background-color: #FFFFFF !important;
-  color: #17171B !important;
-  border-color: rgba(180, 150, 90, 0.25) !important;
-}
-
-.light .overlay-bg {
-  background: rgba(240, 236, 225, 0.8) !important;
-}
-
+/* ========================================================
+   ACCENT THEMES (Settings → Accent colour)
+   Each accent is tuned separately for dark and light so
+   text on it always keeps readable contrast.
+   ======================================================== */
+:root[data-accent="emerald"] { --color-mm-gold: #74D3A4; --color-mm-gold-light: #A9E8C8; --color-mm-line: #74D3A4; }
+:root[data-accent="sapphire"] { --color-mm-gold: #8FB6F2; --color-mm-gold-light: #BBD2F8; --color-mm-line: #8FB6F2; }
+:root[data-accent="rose"] { --color-mm-gold: #EE9DB2; --color-mm-gold-light: #F6C6D3; --color-mm-line: #EE9DB2; }
+:root[data-accent="amethyst"] { --color-mm-gold: #B9A2F2; --color-mm-gold-light: #D6C9F9; --color-mm-line: #B9A2F2; }
+:root.light[data-accent="emerald"] { --color-mm-gold: #1E7A52; --color-mm-gold-light: #2B9467; --color-mm-line: #1E7A52; }
+:root.light[data-accent="sapphire"] { --color-mm-gold: #2556A8; --color-mm-gold-light: #3A6CC0; --color-mm-line: #2556A8; }
+:root.light[data-accent="rose"] { --color-mm-gold: #B23A5C; --color-mm-gold-light: #C8537A; --color-mm-line: #B23A5C; }
+:root.light[data-accent="amethyst"] { --color-mm-gold: #6A46C2; --color-mm-gold-light: #7F5DD4; --color-mm-line: #6A46C2; }

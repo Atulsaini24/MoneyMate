@@ -82,13 +82,13 @@ export const PaymentSuccessOverlay: React.FC<PaymentSuccessOverlayProps> = ({
             initial={{ scale: 0.5, opacity: 0.6 }}
             animate={{ scale: [0.8, 1.8, 2.2], opacity: [0.6, 0.25, 0] }}
             transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
-            className="absolute w-52 h-52 rounded-full border border-white/30 pointer-events-none"
+            className="absolute w-52 h-52 rounded-full border border-mm-text/30 pointer-events-none"
           />
           <motion.div
             initial={{ scale: 0.5, opacity: 0.4 }}
             animate={{ scale: [0.8, 1.5, 1.9], opacity: [0.5, 0.2, 0] }}
             transition={{ repeat: Infinity, duration: 2, delay: 0.35, ease: 'easeOut' }}
-            className="absolute w-40 h-40 rounded-full border border-white/20 pointer-events-none"
+            className="absolute w-40 h-40 rounded-full border border-mm-text/20 pointer-events-none"
           />
 
           {/* Central Animated Checkmark Circle */}

@@ -17,7 +17,7 @@ export const seedGoals: SavingsGoal[] = [];
 export const seedFriends: FriendRecord[] = [];
 
 export const defaultSettings: UserSettings = {
-  name: 'Investor',
+  name: '',
   currency: 'INR',
   currencySymbol: '₹',
   dateFormat: 'DD/MM/YYYY',
@@ -25,6 +25,7 @@ export const defaultSettings: UserSettings = {
   theme: 'dark',
   reducedMotion: false,
   notifications: true,
+  privacyMode: false,
 };
 
 export const MOTIVATIONAL_QUOTES = [

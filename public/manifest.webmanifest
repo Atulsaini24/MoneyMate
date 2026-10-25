@@ -1,0 +1,19 @@
+{
+  "name": "MoneyMate",
+  "short_name": "MoneyMate",
+  "description": "Track spending, plan budgets and see what's safe to spend today.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B0B0D",
+  "theme_color": "#0B0B0D",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Add expense", "url": "/?action=add-expense", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Scan receipt", "url": "/?action=scan", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

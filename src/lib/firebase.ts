@@ -1,8 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 
-// Environment variables or fallback to user custom configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
@@ -14,21 +12,12 @@ const firebaseConfig = {
 };
 
 export const isFirebaseConfigured = Boolean(
-  firebaseConfig.apiKey &&
-  firebaseConfig.projectId &&
-  firebaseConfig.apiKey !== 'YOUR_API_KEY'
+  firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.apiKey !== 'YOUR_API_KEY'
 );
 
-const app = isFirebaseConfigured 
-  ? (!getApps().length ? initializeApp(firebaseConfig) : getApp())
-  : null;
+const app = isFirebaseConfigured ? (!getApps().length ? initializeApp(firebaseConfig) : getApp()) : null;
 
 export const auth = app ? getAuth(app) : null;
-// Automatically handles standard (default) database or explicit default database instance
-export const db = app ? getFirestore(app) : null;
 export const googleProvider = new GoogleAuthProvider();
-// Force Google to always display the account chooser so you can select any account
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 export default app;

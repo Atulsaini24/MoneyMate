@@ -38,21 +38,21 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 8 }}
             transition={{ duration: 0.2 }}
-            className="glass-card-elevated p-6 max-w-sm w-full relative z-10 border border-[rgba(214,188,134,0.18)]"
+            className="glass-card-elevated p-6 max-w-sm w-full relative z-10 border border-mm-line/18"
           >
             <div className="flex items-start gap-3 mb-4">
               {variant === 'danger' && (
-                <div className="p-2 rounded-xl bg-[#D98282]/10 border border-[#D98282]/20 flex-shrink-0">
-                  <AlertTriangle size={18} className="text-[#D98282]" />
+                <div className="p-2 rounded-xl bg-mm-negative/10 border border-mm-negative/20 flex-shrink-0">
+                  <AlertTriangle size={18} className="text-mm-negative" />
                 </div>
               )}
               <div className="flex-1">
-                <h3 className="text-base font-semibold text-[#F5F1E8]">{title}</h3>
-                <p className="text-xs text-[#B6B0A5] mt-1 leading-relaxed">{displayMessage}</p>
+                <h3 className="text-base font-semibold text-mm-text">{title}</h3>
+                <p className="text-xs text-mm-text2 mt-1 leading-relaxed">{displayMessage}</p>
               </div>
               <button 
                 onClick={onClose} 
-                className="p-1 hover:bg-white/5 rounded-lg transition-colors text-[#77736D] hover:text-[#F5F1E8]"
+                className="p-1 hover:bg-mm-text/5 rounded-lg transition-colors text-mm-muted hover:text-mm-text"
                 aria-label="Close dialog"
               >
                 <X size={16} />
@@ -61,7 +61,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             <div className="flex gap-2.5 justify-end pt-2">
               <button
                 onClick={onClose}
-                className="px-3.5 py-2 rounded-xl text-xs font-medium text-[#B6B0A5] hover:text-[#F5F1E8] hover:bg-white/5 transition-colors border border-transparent"
+                className="px-3.5 py-2 rounded-xl text-xs font-medium text-mm-text2 hover:text-mm-text hover:bg-mm-text/5 transition-colors border border-transparent"
               >
                 {cancelText}
               </button>
@@ -69,8 +69,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                 onClick={() => { onConfirm(); onClose(); }}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all active:scale-95 ${
                   variant === 'danger'
-                    ? 'bg-[#D98282]/15 text-[#D98282] border border-[#D98282]/30 hover:bg-[#D98282]/25'
-                    : 'bg-[#D6BC86] text-[#0B0B0D] hover:bg-[#E9D8AF] shadow-sm'
+                    ? 'bg-mm-negative/15 text-mm-negative border border-mm-negative/30 hover:bg-mm-negative/25'
+                    : 'bg-mm-gold text-mm-on-gold hover:bg-mm-gold-light shadow-sm'
                 }`}
               >
                 {confirmText}

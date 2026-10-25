@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { AnimatedNumber } from '@/components/shared/AnimatedNumber';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
 interface BalanceCardProps {
@@ -24,11 +24,11 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, change, chart
         {/* Header row */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#B6B0A5]">
-              Total Net Portfolio
+            <span className="text-xs font-medium text-mm-text2">
+              Total balance
             </span>
           </div>
-          <div className="p-1.5 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.12)] text-[#D6BC86]">
+          <div className="p-1.5 rounded-lg bg-mm-bg2 border border-mm-line/12 text-mm-gold">
             <ArrowUpRight size={14} strokeWidth={1.75} />
           </div>
         </div>
@@ -36,17 +36,17 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, change, chart
         {/* Amount & Trend row */}
         <div className="flex items-end justify-between gap-2 mt-1">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-[#F5F1E8] number-display tracking-tight whitespace-nowrap">
-              {formatCurrency(balance)}
+            <h2 className="text-2xl sm:text-3xl font-semibold text-mm-text number-display tracking-tight whitespace-nowrap">
+              <AnimatedNumber value={balance} />
             </h2>
             
             {/* Metric pill */}
-            <div className="inline-flex items-center gap-1.5 mt-2 px-2 sm:px-2.5 py-0.5 rounded-md bg-[#121215] border border-[rgba(214,188,134,0.12)]">
-              <div className={`flex items-center gap-1 ${isPositive ? 'text-[#83C9A5]' : 'text-[#D98282]'}`}>
+            <div className="inline-flex items-center gap-1.5 mt-2 px-2 sm:px-2.5 py-0.5 rounded-md bg-mm-bg2 border border-mm-line/12">
+              <div className={`flex items-center gap-1 ${isPositive ? 'text-mm-positive' : 'text-mm-negative'}`}>
                 {isPositive ? <TrendingUp size={11} strokeWidth={1.75} /> : <TrendingDown size={11} strokeWidth={1.75} />}
                 <span className="text-[11px] sm:text-xs font-semibold">{isPositive ? '+' : ''}{change}%</span>
               </div>
-              <span className="text-[9px] sm:text-[10px] text-[#77736D]">vs last month</span>
+              <span className="text-[9px] sm:text-[10px] text-mm-muted whitespace-nowrap">in 30 days</span>
             </div>
           </div>
 
@@ -57,10 +57,11 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({ balance, change, chart
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#D6BC86"
+                  stroke={change >= 0 ? "#83C9A5" : "#E08C8C"}
                   strokeWidth={2}
                   dot={false}
                   isAnimationActive={true}
+                  animationDuration={1200}
                 />
               </LineChart>
             </ResponsiveContainer>

@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { 
   User, DollarSign, Sparkles, Moon, Sun, 
   Download, Upload, Check, Settings,
-  Calendar, Compass, Crown, Cloud, CloudCheck, ShieldCheck 
+  Calendar, Compass, Crown, Cloud, CloudCheck, ShieldCheck,
+  Eye, EyeOff,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { MoreSettings } from '@/components/settings/MoreSettings';
 import { useAuth } from '@/context/AuthContext';
 import { OnboardingTourModal } from '@/components/shared/OnboardingTourModal';
 import { AuthModal } from '@/components/shared/AuthModal';
@@ -22,7 +24,7 @@ const CURRENCIES = [
 
 export const SettingsPage: React.FC = () => {
   const { 
-    settings, updateSettings, exportData, importData, 
+    settings, updateSettings, exportData, importData, togglePrivacy, 
     showToast, isCloudSynced 
   } = useApp();
   const { user } = useAuth();
@@ -92,14 +94,14 @@ export const SettingsPage: React.FC = () => {
       {/* Header */}
       <div>
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/30">
+          <div className="p-2 rounded-xl bg-mm-gold/15 text-mm-gold border border-mm-gold/30">
             <Settings size={20} />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#F5F1E8] tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold text-mm-text tracking-tight">
             Settings & Architecture
           </h1>
         </div>
-        <p className="text-xs text-[#77736D] mt-1">Manage wealth credentials, luxury aesthetics, and regional currency</p>
+        <p className="text-xs text-mm-muted mt-1">Profile, appearance, currency and your data</p>
       </div>
 
       {/* Profile Card */}
@@ -108,29 +110,29 @@ export const SettingsPage: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="glass-card p-6 specular-sheen"
       >
-        <div className="flex items-center gap-2 mb-4 text-[#D6BC86]">
+        <div className="flex items-center gap-2 mb-4 text-mm-gold">
           <User size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-[#B6B0A5]">Investor Profile</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Investor Profile</h2>
         </div>
 
         <form onSubmit={handleSaveProfile} className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center gap-4 pb-2">
-            <div className="w-14 h-14 rounded-2xl bg-[#19191D] border border-[rgba(214,188,134,0.24)] flex items-center justify-center text-xl font-medium text-[#D6BC86] flex-shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-mm-elevated border border-mm-line/24 flex items-center justify-center text-xl font-medium text-mm-gold flex-shrink-0">
               {settings.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 w-full space-y-1.5">
-              <label className="block text-xs font-medium text-[#B6B0A5]">Account Holder Name</label>
+              <label className="block text-xs font-medium text-mm-text2">Account Holder Name</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Your Name"
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 placeholder:text-[#77736D]"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 placeholder:text-mm-muted"
                 />
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-semibold uppercase tracking-wider transition-all shadow-sm active:scale-95"
+                  className="px-5 py-2.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold text-xs font-semibold uppercase tracking-wider transition-all shadow-sm active:scale-95"
                 >
                   Save
                 </button>
@@ -145,36 +147,36 @@ export const SettingsPage: React.FC = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.02 }}
-        className="glass-card p-6 specular-sheen border border-[#D6BC86]/30 bg-gradient-to-br from-[#121215] to-[#18181D]"
+        className="glass-card p-6 specular-sheen border border-mm-gold/30 bg-gradient-to-br from-mm-bg2 to-[#18181D]"
       >
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-[#D6BC86]">
+          <div className="flex items-center gap-2 text-mm-gold">
             <Cloud size={18} />
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#B6B0A5]">Firebase Cloud Vault & Sync</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Account & sync</h2>
           </div>
           <div className={`px-2.5 py-1 rounded-full text-[11px] font-medium flex items-center gap-1.5 border ${
             user 
-              ? 'bg-[#82D9A3]/10 text-[#82D9A3] border-[#82D9A3]/30' 
-              : 'bg-[#D6BC86]/10 text-[#D6BC86] border-[#D6BC86]/30'
+              ? 'bg-mm-positive/10 text-mm-positive border-mm-positive/30' 
+              : 'bg-mm-gold/10 text-mm-gold border-mm-gold/30'
           }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${user ? 'bg-[#82D9A3] animate-pulse' : 'bg-[#D6BC86]'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${user ? 'bg-mm-positive animate-pulse' : 'bg-mm-gold'}`} />
             {user ? (isCloudSynced ? 'Connected & Live' : 'Cloud Connected') : 'Local Storage Mode'}
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#0B0B0D]/70 border border-[rgba(214,188,134,0.14)]">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-mm-bg/70 border border-mm-line/14">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-[#F5F1E8]">
-                {user ? (user.displayName || user.email || 'Cloud Investor') : 'Local Offline Vault'}
+              <span className="text-sm font-semibold text-mm-text">
+                {user ? (user.displayName || user.email || 'Signed in') : 'Not signed in'}
               </span>
               {user && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/25">
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-mm-gold/15 text-mm-gold border border-mm-gold/25">
                   FIREBASE AUTH
                 </span>
               )}
             </div>
-            <p className="text-xs text-[#77736D]">
+            <p className="text-xs text-mm-muted">
               {user 
                 ? `Synchronizing transactions, monthly budgets, savings goals & debts to Firebase Firestore.`
                 : `Transactions and budgets are stored locally on this device. Sign in with Firebase to enable real-time cross-device sync.`}
@@ -183,7 +185,7 @@ export const SettingsPage: React.FC = () => {
 
           <button
             onClick={() => setShowAuthModal(true)}
-            className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-semibold uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-2"
+            className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold text-xs font-semibold uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-2"
           >
             <Cloud size={14} />
             {user ? 'Manage Cloud Sync' : 'Connect Cloud Vault'}
@@ -198,19 +200,19 @@ export const SettingsPage: React.FC = () => {
         transition={{ delay: 0.04 }}
         className="glass-card p-6 space-y-4 specular-sheen"
       >
-        <div className="flex items-center gap-2 mb-1 text-[#D6BC86]">
+        <div className="flex items-center gap-2 mb-1 text-mm-gold">
           <DollarSign size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-[#B6B0A5]">Currency & Capital Standards</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Currency & Capital Standards</h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Currency selection */}
           <div>
-            <label className="block text-xs font-medium text-[#77736D] mb-1.5">Primary Valuation Currency</label>
+            <label className="block text-xs font-medium text-mm-muted mb-1.5">Primary Valuation Currency</label>
             <select
               value={settings.currency}
               onChange={e => handleCurrencyChange(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
+              className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark]"
             >
               {CURRENCIES.map(curr => (
                 <option key={curr.code} value={curr.code}>
@@ -222,13 +224,13 @@ export const SettingsPage: React.FC = () => {
 
           {/* Budget start day */}
           <div>
-            <label className="block text-xs font-medium text-[#77736D] mb-1.5">Monthly Cycle Anchor Day</label>
+            <label className="block text-xs font-medium text-mm-muted mb-1.5">Monthly Cycle Anchor Day</label>
             <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-[#77736D]" />
+              <Calendar size={16} className="text-mm-muted" />
               <select
                 value={settings.budgetStartDay || 1}
                 onChange={e => updateSettings({ budgetStartDay: parseInt(e.target.value) })}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
+                className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark]"
               >
                 {[1, 5, 10, 15, 20, 25, 28].map(day => (
                   <option key={day} value={day}>
@@ -248,63 +250,113 @@ export const SettingsPage: React.FC = () => {
         transition={{ delay: 0.08 }}
         className="glass-card p-6 space-y-4 specular-sheen"
       >
-        <div className="flex items-center gap-2 mb-1 text-[#D6BC86]">
+        <div className="flex items-center gap-2 mb-1 text-mm-gold">
           <Sparkles size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-[#B6B0A5]">Display & Motion Aesthetics</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Appearance</h2>
         </div>
 
         <div className="space-y-3">
           {/* Theme */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)]">
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-mm-bg2 border border-mm-line/12">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-[#D6BC86]/15 text-[#D6BC86]">
+              <div className="p-2 rounded-lg bg-mm-gold/15 text-mm-gold">
                 {settings.theme === 'dark' ? <Moon size={17} /> : <Sun size={17} />}
               </div>
               <div>
-                <p className="text-sm font-medium text-[#F5F1E8]">Obsidian & Champagne Luxury Theme</p>
-                <p className="text-xs text-[#77736D]">Matte obsidian titanium with restrained champagne gold details</p>
+                <p className="text-sm font-medium text-mm-text">Obsidian & Champagne Luxury Theme</p>
+                <p className="text-xs text-mm-muted">Matte obsidian titanium with restrained champagne gold details</p>
               </div>
             </div>
             <button
-              onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
+              onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' }, { silent: true })}
+              role="switch"
+              aria-checked={settings.theme === 'dark'}
+              aria-label="Dark theme"
               className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
-                settings.theme === 'dark' ? 'bg-[#D6BC86]' : 'bg-[#19191D] border border-[rgba(214,188,134,0.2)]'
+                settings.theme === 'dark' ? 'bg-mm-gold' : 'bg-mm-elevated border border-mm-line/20'
               }`}
             >
               <div
                 className={`w-5 h-5 rounded-full transition-transform ${
-                  settings.theme === 'dark' ? 'bg-[#0B0B0D] translate-x-5' : 'bg-[#77736D] translate-x-0'
+                  settings.theme === 'dark' ? 'bg-mm-bg translate-x-5' : 'bg-mm-muted translate-x-0'
                 }`}
               />
             </button>
           </div>
 
           {/* Reduced Motion */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)]">
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-mm-bg2 border border-mm-line/12">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-[#D6BC86]/15 text-[#D6BC86]">
+              <div className="p-2 rounded-lg bg-mm-gold/15 text-mm-gold">
                 <Sparkles size={17} />
               </div>
               <div>
-                <p className="text-sm font-medium text-[#F5F1E8]">Fluid Kinetic Animations</p>
-                <p className="text-xs text-[#77736D]">Subtle 200ms spring transitions and refined progress feedback</p>
+                <p className="text-sm font-medium text-mm-text">Animations</p>
+                <p className="text-xs text-mm-muted">Turn off to reduce movement across the app</p>
               </div>
             </div>
             <button
               onClick={() => updateSettings({ reducedMotion: !settings.reducedMotion })}
+              role="switch"
+              aria-checked={!settings.reducedMotion}
+              aria-label="Animations"
               className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
-                !settings.reducedMotion ? 'bg-[#D6BC86]' : 'bg-[#19191D] border border-[rgba(214,188,134,0.2)]'
+                !settings.reducedMotion ? 'bg-mm-gold' : 'bg-mm-elevated border border-mm-line/20'
               }`}
             >
               <div
                 className={`w-5 h-5 rounded-full transition-transform ${
-                  !settings.reducedMotion ? 'bg-[#0B0B0D] translate-x-5' : 'bg-[#77736D] translate-x-0'
+                  !settings.reducedMotion ? 'bg-mm-bg translate-x-5' : 'bg-mm-muted translate-x-0'
                 }`}
               />
             </button>
           </div>
+
+          <div className="flex items-center justify-between gap-4 pt-1">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-mm-gold/15 text-mm-gold">
+                {settings.privacyMode ? <EyeOff size={17} /> : <Eye size={17} />}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-mm-text">Hide amounts</p>
+                <p className="text-xs text-mm-muted">Masks every balance on screen. Press H anywhere to toggle.</p>
+              </div>
+            </div>
+            <button
+              onClick={togglePrivacy}
+              role="switch"
+              aria-checked={Boolean(settings.privacyMode)}
+              aria-label="Hide amounts"
+              className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 ${
+                settings.privacyMode ? 'bg-mm-gold' : 'bg-mm-elevated border border-mm-line/20'
+              }`}
+            >
+              <div className={`w-5 h-5 rounded-full transition-transform ${settings.privacyMode ? 'bg-mm-bg translate-x-5' : 'bg-mm-muted translate-x-0'}`} />
+            </button>
+          </div>
         </div>
       </motion.div>
+
+      <MoreSettings />
+
+      {/* Keyboard shortcuts */}
+      <div className="glass-card p-6 hidden md:block">
+        <h2 className="text-sm font-semibold text-mm-text mb-3">Keyboard shortcuts</h2>
+        <dl className="grid grid-cols-2 gap-x-8 gap-y-2.5 text-sm">
+          {[
+            ['Search and commands', '⌘ K  /  Ctrl K'],
+            ['Add expense', 'N'],
+            ['Add income', 'I'],
+            ['Hide or show amounts', 'H'],
+            ['Quick search', '/'],
+          ].map(([label, keys]) => (
+            <div key={label} className="flex items-center justify-between border-b border-mm-line/8 pb-2">
+              <dt className="text-mm-text2">{label}</dt>
+              <dd><kbd className="text-xs text-mm-muted border border-mm-line/20 rounded px-2 py-0.5 font-sans">{keys}</kbd></dd>
+            </div>
+          ))}
+        </dl>
+      </div>
 
       {/* Backup & Export Data */}
       <motion.div
@@ -313,12 +365,12 @@ export const SettingsPage: React.FC = () => {
         transition={{ delay: 0.12 }}
         className="glass-card p-6 space-y-4 specular-sheen"
       >
-        <div className="flex items-center gap-2 mb-1 text-[#D6BC86]">
+        <div className="flex items-center gap-2 mb-1 text-mm-gold">
           <Download size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-[#B6B0A5]">Data Sovereignty & Vault</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Backup & export</h2>
         </div>
 
-        <p className="text-xs text-[#77736D] leading-relaxed">
+        <p className="text-xs text-mm-muted leading-relaxed">
           Your personal finance ledger is completely client-side and saved locally in browser storage. You can export or restore a backup at any time.
         </p>
 
@@ -326,7 +378,7 @@ export const SettingsPage: React.FC = () => {
           {/* Export button */}
           <button
             onClick={handleExportData}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-[#F5F1E8] hover:text-[#D6BC86] hover:border-[#D6BC86]/40 text-xs font-medium transition-all shadow-sm active:scale-95"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-mm-text hover:text-mm-gold hover:border-mm-gold/40 text-xs font-medium transition-all shadow-sm active:scale-95"
           >
             <Download size={15} />
             Export Ledger JSON
@@ -335,7 +387,7 @@ export const SettingsPage: React.FC = () => {
           {/* Import button */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-[#F5F1E8] hover:text-[#D6BC86] hover:border-[#D6BC86]/40 text-xs font-medium transition-all shadow-sm active:scale-95"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-mm-text hover:text-mm-gold hover:border-mm-gold/40 text-xs font-medium transition-all shadow-sm active:scale-95"
           >
             <Upload size={15} />
             Restore Backup
@@ -360,23 +412,23 @@ export const SettingsPage: React.FC = () => {
         <div className="flex justify-center mb-4">
           <MoneyMateLogo size={52} showText={false} />
         </div>
-        <h3 className="text-xl font-bold text-[#F5F1E8] font-serif tracking-tight">MoneyMate Sovereign</h3>
-        <p className="text-xs text-[#D6BC86] font-semibold uppercase tracking-widest mt-1">Private Wealth Management</p>
-        <p className="text-xs text-[#B6B0A5] mt-2 max-w-md mx-auto leading-relaxed">
+        <h3 className="text-xl font-bold text-mm-text font-serif tracking-tight">MoneyMate Sovereign</h3>
+        <p className="text-xs text-mm-gold font-semibold uppercase tracking-widest mt-1">Private Wealth Management</p>
+        <p className="text-xs text-mm-text2 mt-2 max-w-md mx-auto leading-relaxed">
           Crafted with an obsidian and champagne luxury aesthetic, tabular typography, and private wealth financial management.
         </p>
 
         <div className="mt-5 flex items-center justify-center gap-3">
           <button
             onClick={() => setShowTour(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
           >
             <Compass size={15} />
             Launch Wealth Guide
           </button>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-[rgba(214,188,134,0.1)] flex items-center justify-center gap-4 text-[11px] text-[#77736D]">
+        <div className="mt-6 pt-4 border-t border-mm-line/10 flex items-center justify-center gap-4 text-[11px] text-mm-muted">
           <span>v2.2 Obsidian</span>
           <span>•</span>
           <span>Zero Server Telemetry</span>

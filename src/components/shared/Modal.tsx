@@ -45,18 +45,18 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             transition={{ type: 'spring', damping: 30, stiffness: 400 }}
             className={`relative z-10 w-full ${sizeClasses[size]} max-h-[88vh] md:max-h-[85vh] flex flex-col`}
           >
-            <div className="bg-[#17171B] md:rounded-2xl rounded-t-3xl border border-[rgba(214,188,134,0.18)] max-h-[88vh] md:max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="bg-mm-card md:rounded-2xl rounded-t-3xl border border-mm-line/18 max-h-[88vh] md:max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
               {/* Drag handle for mobile */}
               <div className="flex justify-center pt-3 pb-1 md:hidden">
-                <div className="w-10 h-1 rounded-full bg-white/20" />
+                <div className="w-10 h-1 rounded-full bg-mm-text/20" />
               </div>
               
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-[rgba(214,188,134,0.1)] flex-shrink-0">
-                <h2 className="text-base font-semibold text-[#F5F1E8] font-serif tracking-tight">{title}</h2>
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-mm-line/10 flex-shrink-0">
+                <h2 className="text-base font-semibold text-mm-text font-serif tracking-tight">{title}</h2>
                 <button
                   onClick={onClose}
-                  className="p-1.5 hover:bg-white/5 rounded-xl transition-colors text-[#77736D] hover:text-[#F5F1E8]"
+                  className="p-1.5 hover:bg-mm-text/5 rounded-xl transition-colors text-mm-muted hover:text-mm-text"
                   aria-label="Close"
                 >
                   <X size={18} />
@@ -70,7 +70,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
               {/* Sticky Footer with bottom safe area */}
               {footer && (
-                <div className="px-5 py-3.5 pb-6 sm:pb-3.5 bg-[#17171B] border-t border-[rgba(214,188,134,0.1)] flex-shrink-0 bottom-nav-safe">
+                <div className="px-5 py-3.5 pb-6 sm:pb-3.5 bg-mm-card border-t border-mm-line/10 flex-shrink-0 bottom-nav-safe">
                   {footer}
                 </div>
               )}

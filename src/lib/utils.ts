@@ -5,13 +5,45 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+// Module-level display config so the ~40 existing formatCurrency() call sites
+// follow the user's currency and privacy settings without prop drilling.
+// AppContext calls setDisplayConfig() whenever settings change.
+const displayConfig = { currency: 'INR', locale: 'en-IN', privacy: false };
+const formatterCache = new Map<string, Intl.NumberFormat>();
+
+export function setDisplayConfig(next: Partial<typeof displayConfig>) {
+  Object.assign(displayConfig, next);
+}
+
+function currencyFormatter(compact: boolean) {
+  const key = `${displayConfig.locale}|${displayConfig.currency}|${compact}`;
+  let f = formatterCache.get(key);
+  if (!f) {
+    try {
+      f = new Intl.NumberFormat(displayConfig.locale, {
+        style: 'currency',
+        currency: displayConfig.currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: compact ? 1 : 0,
+        ...(compact ? { notation: 'compact' as const } : {}),
+      });
+    } catch {
+      f = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+    }
+    formatterCache.set(key, f);
+  }
+  return f;
+}
+
+/** Formats money in the user's currency. Masks the digits when privacy mode is on. */
+export function formatCurrency(amount: number, opts: { compact?: boolean; reveal?: boolean } = {}): string {
+  const text = currencyFormatter(Boolean(opts.compact)).format(Number.isFinite(amount) ? amount : 0);
+  if (displayConfig.privacy && !opts.reveal) return text.replace(/[\d.,]+/, '•••••');
+  return text;
+}
+
+export function isPrivacyMode() {
+  return displayConfig.privacy;
 }
 
 export function formatNumber(num: number): string {
@@ -19,7 +51,7 @@ export function formatNumber(num: number): string {
 }
 
 export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export function formatDate(dateStr: string): string {
@@ -51,8 +83,25 @@ export function getMonthName(monthStr: string): string {
 }
 
 export function getCurrentMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return monthKey(new Date());
+}
+
+export function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function dayKey(d: Date): string {
+  return `${monthKey(d)}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function addMonths(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  return monthKey(new Date(y, m - 1 + delta, 1));
+}
+
+export function daysInMonth(month: string): number {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
 }
 
 export function getGreeting(): string {

@@ -289,24 +289,24 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             transition={{ type: 'spring', damping: 28, stiffness: 380 }}
-            className="relative z-10 w-full sm:max-w-md bg-[#121216] border border-[#D6BC86]/25 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden pb-8 sm:pb-6"
+            className="relative z-10 w-full sm:max-w-md bg-mm-bg2 border border-mm-gold/25 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden pb-8 sm:pb-6"
           >
             {/* Top ambient gold accent bar */}
-            <div className="h-1 w-full bg-gradient-to-r from-transparent via-[#D6BC86] to-transparent opacity-80" />
+            <div className="h-1 w-full bg-gradient-to-r from-transparent via-mm-gold to-transparent opacity-80" />
 
             {/* Mobile drag bar */}
             <div className="flex justify-center pt-2.5 pb-1 sm:hidden">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
+              <div className="w-10 h-1 rounded-full bg-mm-text/20" />
             </div>
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/[0.06] gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-[#D6BC86]/25 to-[#D6BC86]/5 border border-[#D6BC86]/30 flex items-center justify-center text-[#D6BC86] flex-shrink-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-br from-mm-gold/25 to-mm-gold/5 border border-mm-gold/30 flex items-center justify-center text-mm-gold flex-shrink-0">
                   <Sparkles size={15} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs sm:text-sm font-bold text-[#F5F1E8] tracking-tight font-serif truncate">
+                  <h3 className="text-xs sm:text-sm font-bold text-mm-text tracking-tight font-serif truncate">
                     MoneyMate Voice AI
                   </h3>
                   <p className="text-[9px] sm:text-[10px] text-[#A39E95] truncate">Hindi • Punjabi • English</p>
@@ -319,7 +319,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                   <select
                     value={selectedLang}
                     onChange={(e) => setSelectedLang(e.target.value)}
-                    className="appearance-none pl-2.5 pr-6 py-1 rounded-lg bg-[#18181E] border border-[rgba(214,188,134,0.2)] text-[10px] sm:text-[11px] font-semibold text-[#D6BC86] focus:outline-none focus:border-[#D6BC86]/60 cursor-pointer max-w-[130px] sm:max-w-none truncate"
+                    className="appearance-none pl-2.5 pr-6 py-1 rounded-lg bg-mm-card border border-mm-line/20 text-[10px] sm:text-[11px] font-semibold text-mm-gold focus:outline-none focus:border-mm-gold/60 cursor-pointer max-w-[130px] sm:max-w-none truncate"
                   >
                     {SUPPORTED_LANGUAGES.map((l) => (
                       <option key={l.code} value={l.code}>
@@ -327,12 +327,12 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={11} className="absolute right-2 text-[#D6BC86] pointer-events-none" />
+                  <ChevronDown size={11} className="absolute right-2 text-mm-gold pointer-events-none" />
                 </div>
 
                 <button
                   onClick={onClose}
-                  className="p-1 rounded-lg text-[#77736D] hover:text-[#F5F1E8] hover:bg-white/5 transition-colors"
+                  className="p-1 rounded-lg text-mm-muted hover:text-mm-text hover:bg-mm-text/5 transition-colors"
                 >
                   <X size={17} />
                 </button>
@@ -347,7 +347,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                   <motion.div
                     animate={{ scale: [1, 1.4, 1.7], opacity: [0.6, 0.25, 0] }}
                     transition={{ repeat: Infinity, duration: 1.8, ease: 'easeOut' }}
-                    className="absolute w-24 h-24 rounded-full bg-[#D6BC86]/20 pointer-events-none"
+                    className="absolute w-24 h-24 rounded-full bg-mm-gold/20 pointer-events-none"
                   />
                 )}
 
@@ -357,22 +357,22 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                   onClick={handleMicClick}
                   className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl cursor-pointer ${
                     isListening
-                      ? 'bg-gradient-to-tr from-[#D6BC86] to-[#E9D8AF] text-[#0B0B0D] shadow-[#D6BC86]/30 ring-4 ring-[#D6BC86]/20'
-                      : 'bg-[#18181E] text-[#D6BC86] border border-[#D6BC86]/40 hover:border-[#D6BC86]'
+                      ? 'bg-gradient-to-tr from-mm-gold to-mm-gold-light text-mm-on-gold shadow-mm-gold/30 ring-4 ring-mm-gold/20'
+                      : 'bg-mm-card text-mm-gold border border-mm-gold/40 hover:border-mm-gold'
                   }`}
                   aria-label="Toggle Microphone"
                 >
                   {isListening ? (
                     <Mic size={32} className="animate-pulse" />
                   ) : (
-                    <MicOff size={28} className="text-[#77736D]" />
+                    <MicOff size={28} className="text-mm-muted" />
                   )}
                 </motion.button>
               </div>
 
               {/* Status and Audio Level Waveform */}
               <div className="flex items-center gap-2 mt-4">
-                <span className={`text-xs font-semibold uppercase tracking-wider ${isListening ? 'text-[#D6BC86]' : 'text-[#77736D]'}`}>
+                <span className={`text-xs font-semibold uppercase tracking-wider ${isListening ? 'text-mm-gold' : 'text-mm-muted'}`}>
                   {isListening ? 'Listening Live' : 'Tap Mic to Speak'}
                 </span>
                 {isListening && (
@@ -380,7 +380,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                     {audioLevel.map((h, i) => (
                       <motion.div
                         key={i}
-                        className="w-1 bg-[#D6BC86] rounded-full"
+                        className="w-1 bg-mm-gold rounded-full"
                         animate={{ height: `${h}px` }}
                         transition={{ duration: 0.12 }}
                       />
@@ -390,17 +390,17 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
               </div>
 
               {/* Spoken Live Transcript Card */}
-              <div className="w-full mt-4 p-3.5 rounded-2xl bg-[#0D0D10] border border-white/[0.08] min-h-[64px] flex items-center justify-center text-center">
+              <div className="w-full mt-4 p-3.5 rounded-2xl bg-mm-bg2 border border-white/[0.08] min-h-[64px] flex items-center justify-center text-center">
                 {transcript ? (
-                  <p className="text-sm font-medium text-[#F5F1E8] tracking-tight italic">
+                  <p className="text-sm font-medium text-mm-text tracking-tight italic">
                     "{transcript}"
                   </p>
                 ) : (
                   <div className="text-center space-y-1">
-                    <p className="text-xs text-[#B6B0A5] font-medium">
+                    <p className="text-xs text-mm-text2 font-medium">
                       Speak in Hindi, Punjabi, or English
                     </p>
-                    <p className="text-[10px] text-[#77736D] italic">
+                    <p className="text-[10px] text-mm-muted italic">
                       e.g. "1000 ruppee kharche protein gym ch" • "10$ on tea in food"
                     </p>
                   </div>
@@ -413,15 +413,15 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mx-5 mb-4 p-4 rounded-2xl bg-gradient-to-br from-[#191922] to-[#141419] border border-[#D6BC86]/40 shadow-lg space-y-2.5"
+                className="mx-5 mb-4 p-4 rounded-2xl bg-gradient-to-br from-[#191922] to-[#141419] border border-mm-gold/40 shadow-lg space-y-2.5"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#D6BC86] flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-mm-gold flex items-center gap-1.5">
                     {parsedResult.action === 'add_budget' ? <PiggyBank size={14} /> : <Wallet size={14} />}
                     {parsedResult.action === 'add_budget' ? 'Budget Ready' : 'Outflow Ready'}
                   </span>
                   {countdown !== null && (
-                    <span className="text-[11px] font-bold text-[#83C9A5] animate-pulse">
+                    <span className="text-[11px] font-bold text-mm-positive animate-pulse">
                       Auto-saving in {countdown}s...
                     </span>
                   )}
@@ -429,17 +429,17 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-2xl font-bold text-[#F5F1E8] number-display">
+                    <div className="text-2xl font-bold text-mm-text number-display">
                       {settings.currencySymbol}{parsedResult.amount.toLocaleString()}
                     </div>
-                    <div className="text-xs text-[#B6B0A5] font-medium mt-0.5">
-                      {parsedResult.description} • <span className="text-[#D6BC86] font-semibold">{parsedResult.category}</span>
+                    <div className="text-xs text-mm-text2 font-medium mt-0.5">
+                      {parsedResult.description} • <span className="text-mm-gold font-semibold">{parsedResult.category}</span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => { clearTimers(); executeEntry(parsedResult); }}
-                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
+                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
                   >
                     <Check size={14} strokeWidth={2.5} />
                     Confirm
@@ -455,11 +455,11 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({ isOpen
                 placeholder='Or type e.g. "1000 protein gym" / "10$ tea food"'
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-[#0D0D10] border border-white/[0.08] text-xs text-[#F5F1E8] placeholder:text-[#66635D] focus:outline-none focus:border-[#D6BC86]/50"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-mm-bg2 border border-white/[0.08] text-xs text-mm-text placeholder:text-[#66635D] focus:outline-none focus:border-mm-gold/50"
               />
               <button
                 type="submit"
-                className="p-2.5 rounded-xl bg-[#1D1D26] border border-[#D6BC86]/30 text-[#D6BC86] hover:text-[#F5F1E8] active:scale-95 transition-all cursor-pointer"
+                className="p-2.5 rounded-xl bg-[#1D1D26] border border-mm-gold/30 text-mm-gold hover:text-mm-text active:scale-95 transition-all cursor-pointer"
                 title="Send command"
               >
                 <ArrowRight size={15} />

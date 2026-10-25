@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { 
   Search, Bell, Moon, Sun, ChevronDown, Compass, Calendar as CalendarIcon,
   Menu, X, LayoutDashboard, ArrowLeftRight, PiggyBank, Target, BarChart3,
-  Users, Settings as SettingsIcon, ShieldCheck, Cloud, CloudOff, Mic 
+  Users, Settings as SettingsIcon, Cloud, CloudOff, Mic, Eye, EyeOff, RefreshCw, Download, Landmark, ReceiptIndianRupee, Sparkles 
 } from 'lucide-react';
+import { useUI } from '@/context/UIContext';
+import { NotificationCenter } from '@/components/layout/NotificationCenter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
@@ -20,27 +22,27 @@ const drawerNavItems = [
   { to: '/goals', icon: Target, label: 'Savings Goals' },
   { to: '/reports', icon: BarChart3, label: 'Analytics' },
   { to: '/friends', icon: Users, label: 'Debts & IOUs' },
+  { to: '/groups', icon: Users, label: 'Groups' },
+  { to: '/wealth', icon: Landmark, label: 'Wealth' },
+  { to: '/tax', icon: ReceiptIndianRupee, label: 'Tax planner' },
+  { to: '/ask', icon: Sparkles, label: 'Ask MoneyMate' },
+  { to: '/import', icon: Download, label: 'Import' },
   { to: '/settings', icon: SettingsIcon, label: 'Settings' },
 ];
 
 export const DashboardHeader: React.FC = () => {
-  const { settings, updateSettings, isCloudSynced } = useApp();
+  const { settings, updateSettings, isCloudSynced, syncStatus, togglePrivacy } = useApp();
+  const { setPaletteOpen } = useUI();
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  const syncLabel = !isCloudSynced ? 'Not syncing' : syncStatus === 'syncing' ? 'Saving…' : syncStatus === 'offline' ? 'Offline, will retry' : 'All changes saved';
+  const toggleTheme = () => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' }, { silent: true });
   const { user } = useAuth();
-  const [searchValue, setSearchValue] = useState('');
-  const [showTour, setShowTour] = useState(false);
+    const [showTour, setShowTour] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchValue.trim()) {
-      navigate(`/transactions?search=${encodeURIComponent(searchValue.trim())}`);
-      setSearchValue('');
-    }
-  };
 
   const currentDateFormatted = new Date().toLocaleDateString('en-GB', {
     weekday: 'short',
@@ -52,11 +54,11 @@ export const DashboardHeader: React.FC = () => {
   return (
     <>
       {/* Mobile Top App Bar (Unified across all pages) */}
-      <header className="lg:hidden flex items-center justify-between px-3 py-2 border-b border-[rgba(214,188,134,0.1)] bg-[#0B0B0D]/95 backdrop-blur-xl sticky top-0 z-30 min-w-0">
+      <header className="lg:hidden flex items-center justify-between px-3 py-2 border-b border-mm-line/10 bg-mm-bg/95 backdrop-blur-xl sticky top-0 z-30 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)] text-[#D6BC86] active:scale-95 transition-transform flex-shrink-0"
+            className="p-2 rounded-xl bg-mm-bg2 border border-mm-line/12 text-mm-gold active:scale-95 transition-transform flex-shrink-0"
             aria-label="Open Navigation Menu"
           >
             <Menu size={17} strokeWidth={1.75} />
@@ -66,52 +68,40 @@ export const DashboardHeader: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {/* Cloud Sync Status Button */}
-          <button
-            onClick={() => setShowAuth(true)}
-            className={`p-2 rounded-xl border transition-all active:scale-95 ${
-              isCloudSynced 
-                ? 'bg-[#83C9A5]/15 border-[#83C9A5]/30 text-[#83C9A5]' 
-                : 'bg-[#121215] border-[rgba(214,188,134,0.12)] text-[#D6BC86]'
-            }`}
-            aria-label="Cloud Sync"
-            title={isCloudSynced ? 'Synced with Firebase' : 'Connect Firebase Cloud'}
-          >
-            {isCloudSynced ? <Cloud size={15} strokeWidth={2} /> : <CloudOff size={15} strokeWidth={1.75} />}
-          </button>
+
           <button
             onClick={() => setShowVoice(true)}
-            className="p-2 rounded-xl bg-[#D6BC86]/15 border border-[#D6BC86]/35 text-[#D6BC86] active:scale-95 transition-transform"
+            className="p-2 rounded-xl bg-mm-gold/15 border border-mm-gold/35 text-mm-gold active:scale-95 transition-transform"
             aria-label="Voice Assistant"
             title="MoneyMate Voice AI"
           >
             <Mic size={15} strokeWidth={2} />
           </button>
           <button
-            onClick={() => setShowTour(true)}
-            className="hidden sm:flex p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.12)] text-[#D6BC86] active:scale-95 transition-transform"
-            aria-label="Product Tour Guide"
-            title="Product Tour"
+            onClick={() => setPaletteOpen(true)}
+            className="p-2 rounded-xl bg-mm-bg2 border border-mm-line/12 text-mm-text2 active:scale-95 transition-transform"
+            aria-label="Search"
           >
-            <Compass size={15} strokeWidth={1.75} />
+            <Search size={15} strokeWidth={1.75} />
           </button>
+          <NotificationCenter compact />
           {/* Mobile Theme Toggle with Spring Animation */}
           <motion.button
             whileTap={{ scale: 0.85, rotate: 180 }}
             whileHover={{ scale: 1.05 }}
-            onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-[#D6BC86] shadow-sm flex items-center justify-center transition-colors"
+            onClick={toggleTheme}
+            className="p-2 rounded-xl bg-mm-bg2 border border-mm-line/16 text-mm-gold shadow-sm flex items-center justify-center transition-colors"
             aria-label="Toggle theme"
           >
             {settings.theme === 'dark' ? (
-              <Moon size={15} strokeWidth={2} className="text-[#D6BC86]" />
+              <Moon size={15} strokeWidth={2} className="text-mm-gold" />
             ) : (
               <Sun size={15} strokeWidth={2} className="text-[#E5A93C]" />
             )}
           </motion.button>
           <button
             onClick={() => navigate('/settings')}
-            className="w-8 h-8 rounded-full bg-[#17171B] border border-[rgba(214,188,134,0.25)] flex items-center justify-center text-xs font-semibold text-[#D6BC86] active:scale-95 transition-transform flex-shrink-0"
+            className="w-8 h-8 rounded-full bg-mm-card border border-mm-line/25 flex items-center justify-center text-xs font-semibold text-mm-gold active:scale-95 transition-transform flex-shrink-0"
             aria-label="Account Settings"
           >
             {settings.name.charAt(0).toUpperCase()}
@@ -135,13 +125,13 @@ export const DashboardHeader: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative w-72 max-w-[80vw] h-full bg-[#0B0B0D] border-r border-[rgba(214,188,134,0.18)] shadow-2xl flex flex-col z-10"
+              className="relative w-72 max-w-[80vw] h-full bg-mm-bg border-r border-mm-line/18 shadow-2xl flex flex-col z-10"
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(214,188,134,0.1)]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-mm-line/10">
                 <MoneyMateLogo size={28} showText={true} />
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-white/5 text-[#77736D] hover:text-[#F5F1E8]"
+                  className="p-1.5 rounded-lg hover:bg-mm-text/5 text-mm-muted hover:text-mm-text"
                   aria-label="Close menu"
                 >
                   <X size={18} />
@@ -149,7 +139,7 @@ export const DashboardHeader: React.FC = () => {
               </div>
 
               <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                <p className="px-3 pb-2 text-[10px] font-semibold tracking-[0.14em] uppercase text-[#77736D]">
+                <p className="px-3 pb-2 text-[10px] font-semibold tracking-[0.14em] uppercase text-mm-muted">
                   Navigation
                 </p>
                 {drawerNavItems.map(item => {
@@ -165,14 +155,14 @@ export const DashboardHeader: React.FC = () => {
                       }}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-left ${
                         isActive
-                          ? 'bg-[#17171B] border border-[rgba(214,188,134,0.25)] text-[#F5F1E8] shadow-sm font-semibold'
-                          : 'text-[#B6B0A5] hover:bg-[#121215] hover:text-[#F5F1E8]'
+                          ? 'bg-mm-card border border-mm-line/25 text-mm-text shadow-sm font-semibold'
+                          : 'text-mm-text2 hover:bg-mm-bg2 hover:text-mm-text'
                       }`}
                     >
                       <item.icon
                         size={17}
                         strokeWidth={1.75}
-                        className={isActive ? 'text-[#D6BC86]' : 'text-[#77736D]'}
+                        className={isActive ? 'text-mm-gold' : 'text-mm-muted'}
                       />
                       <span className="text-xs tracking-tight">{item.label}</span>
                     </button>
@@ -180,12 +170,12 @@ export const DashboardHeader: React.FC = () => {
                 })}
               </nav>
 
-              <div className="p-4 border-t border-[rgba(214,188,134,0.1)]">
-                <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.08)]">
-                  <ShieldCheck size={14} className="text-[#D6BC86]" strokeWidth={1.75} />
+              <div className="p-4 border-t border-mm-line/10">
+                <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-mm-bg2 border border-mm-line/8">
+                  <Cloud size={14} className="text-mm-gold" strokeWidth={1.75} />
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold text-[#F5F1E8]">End-to-End Encrypted</span>
-                    <span className="text-[9px] text-[#77736D]">Private Client Storage</span>
+                    <span className="text-[11px] font-semibold text-mm-text">{syncLabel}</span>
+                    <span className="text-[10px] text-mm-muted">{user?.email || 'Saved on this device'}</span>
                   </div>
                 </div>
               </div>
@@ -195,24 +185,17 @@ export const DashboardHeader: React.FC = () => {
       </AnimatePresence>
 
       {/* Desktop Header */}
-      <header className="hidden lg:flex items-center justify-between px-6 py-3 border-b border-[rgba(214,188,134,0.1)] bg-[#0B0B0D]/90 backdrop-blur-md sticky top-0 z-30">
+      <header className="hidden lg:flex items-center justify-between px-6 py-3 border-b border-mm-line/10 bg-mm-bg/90 backdrop-blur-md sticky top-0 z-30">
         {/* Left: Date & Search */}
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-xs text-[#77736D] font-medium">
-            <CalendarIcon size={14} className="text-[#D6BC86]" strokeWidth={1.75} />
-            <span>{currentDateFormatted}</span>
-          </div>
-
-          <form onSubmit={handleSearch} className="relative w-72">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#77736D]" strokeWidth={1.75} />
-            <input
-              type="text"
-              placeholder="Search transactions, accounts..."
-              value={searchValue}
-              onChange={e => setSearchValue(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-1.5 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.12)] text-xs text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86] transition-colors"
-            />
-          </form>
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="flex items-center gap-2.5 w-72 pl-3 pr-2 py-1.5 rounded-lg bg-mm-bg2 border border-mm-line/12 text-xs text-mm-muted hover:border-mm-gold/40 transition-colors"
+          >
+            <Search size={14} strokeWidth={1.75} />
+            <span className="flex-1 text-left">Search or jump to…</span>
+            <kbd className="text-[10px] border border-mm-line/20 rounded px-1.5 py-0.5 font-sans">{isMac ? '⌘' : 'Ctrl'} K</kbd>
+          </button>
         </div>
 
         {/* Right actions */}
@@ -220,35 +203,37 @@ export const DashboardHeader: React.FC = () => {
           {/* Cloud Sync button */}
           <button
             onClick={() => setShowAuth(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-              isCloudSynced
-                ? 'bg-[#83C9A5]/15 border-[#83C9A5]/30 text-[#83C9A5]'
-                : 'bg-[#121215] border-[rgba(214,188,134,0.12)] hover:border-[#D6BC86]/40 text-[#B6B0A5] hover:text-[#F5F1E8]'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium whitespace-nowrap transition-all ${
+              !isCloudSynced
+                ? 'bg-mm-bg2 border-mm-line/12 hover:border-mm-gold/40 text-mm-text2 hover:text-mm-text'
+                : syncStatus === 'offline'
+                ? 'bg-mm-warning/12 border-mm-warning/30 text-mm-warning'
+                : 'bg-mm-positive/12 border-mm-positive/25 text-mm-positive'
             }`}
-            title={isCloudSynced ? `Synced as ${user?.email}` : 'Connect Firebase Cloud'}
+            title={isCloudSynced ? `Signed in as ${user?.email}` : 'Sign in to sync'}
           >
-            {isCloudSynced ? <Cloud size={14} className="text-[#83C9A5]" /> : <CloudOff size={14} className="text-[#D6BC86]" />}
-            <span>{isCloudSynced ? 'Cloud Synced' : 'Cloud Sync'}</span>
+            {!isCloudSynced || syncStatus === 'offline' ? <CloudOff size={14} /> : syncStatus === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : <Cloud size={14} />}
+            <span>{syncLabel}</span>
           </button>
 
           {/* Voice AI Assistant Button */}
           <button
             onClick={() => setShowVoice(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#D6BC86]/15 border border-[#D6BC86]/35 hover:bg-[#D6BC86]/25 text-[#D6BC86] text-xs font-semibold tracking-wide transition-all active:scale-95 shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-mm-gold/15 border border-mm-gold/35 hover:bg-mm-gold/25 text-mm-gold text-xs font-semibold tracking-wide transition-all active:scale-95 shadow-sm"
             title="MoneyMate Voice AI (Hindi, Punjabi, English)"
           >
             <Mic size={14} strokeWidth={2.2} />
-            <span>Voice AI</span>
+            <span>Voice</span>
           </button>
 
           {/* Guide Tour button */}
           <button
             onClick={() => setShowTour(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.12)] hover:border-[#D6BC86]/40 text-xs font-medium text-[#B6B0A5] hover:text-[#F5F1E8] transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-mm-bg2 border border-mm-line/12 hover:border-mm-gold/40 text-xs font-medium text-mm-text2 hover:text-mm-text transition-all"
             title="Overview Guide"
           >
-            <Compass size={13} className="text-[#D6BC86]" strokeWidth={1.75} />
-            <span>Product Tour</span>
+            <Compass size={13} className="text-mm-gold" strokeWidth={1.75} />
+            <span>Tour</span>
           </button>
 
           {/* Desktop Theme toggle with Fluid Kinetic Animation */}
@@ -256,37 +241,40 @@ export const DashboardHeader: React.FC = () => {
             whileTap={{ scale: 0.85, rotate: 180 }}
             whileHover={{ scale: 1.1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="p-2 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.14)] hover:border-[#D6BC86]/40 text-[#D6BC86] transition-colors shadow-sm"
+            onClick={toggleTheme}
+            className="p-2 rounded-xl bg-mm-bg2 border border-mm-line/14 hover:border-mm-gold/40 text-mm-gold transition-colors shadow-sm"
             aria-label="Toggle theme"
             title={settings.theme === 'dark' ? 'Switch to Ivory Light Theme' : 'Switch to Obsidian Dark Theme'}
           >
             {settings.theme === 'dark' ? (
-              <Moon size={16} strokeWidth={2} className="text-[#D6BC86]" />
+              <Moon size={16} strokeWidth={2} className="text-mm-gold" />
             ) : (
               <Sun size={16} strokeWidth={2} className="text-[#E5A93C]" />
             )}
           </motion.button>
 
-          {/* Notifications */}
-          <button 
-            className="p-1.5 rounded-lg hover:bg-[#121215] text-[#77736D] hover:text-[#B6B0A5] transition-colors relative"
-            aria-label="Notifications"
+          <button
+            onClick={togglePrivacy}
+            className="p-2 rounded-lg hover:bg-mm-bg2 text-mm-text2 hover:text-mm-text transition-colors"
+            aria-label={settings.privacyMode ? 'Show amounts' : 'Hide amounts'}
+            aria-pressed={Boolean(settings.privacyMode)}
+            title={settings.privacyMode ? 'Show amounts (H)' : 'Hide amounts (H)'}
           >
-            <Bell size={16} strokeWidth={1.75} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#D6BC86] rounded-full" />
+            {settings.privacyMode ? <EyeOff size={16} strokeWidth={1.75} /> : <Eye size={16} strokeWidth={1.75} />}
           </button>
+
+          <NotificationCenter />
 
           {/* Profile */}
           <button
             onClick={() => navigate('/settings')}
-            className="flex items-center gap-2 pl-2 pr-1.5 py-1 rounded-lg hover:bg-[#121215] transition-colors"
+            className="flex items-center gap-2 pl-2 pr-1.5 py-1 rounded-lg hover:bg-mm-bg2 transition-colors"
           >
-            <div className="w-7 h-7 rounded-full bg-[#17171B] border border-[rgba(214,188,134,0.25)] flex items-center justify-center text-xs font-semibold text-[#D6BC86]">
+            <div className="w-7 h-7 rounded-full bg-mm-card border border-mm-line/25 flex items-center justify-center text-xs font-semibold text-mm-gold">
               {settings.name.charAt(0).toUpperCase()}
             </div>
-            <span className="text-xs font-medium text-[#F5F1E8]">{settings.name}</span>
-            <ChevronDown size={12} className="text-[#77736D]" />
+            <span className="hidden xl:inline text-xs font-medium text-mm-text whitespace-nowrap">{settings.name}</span>
+            <ChevronDown size={12} className="text-mm-muted" />
           </button>
         </div>
       </header>

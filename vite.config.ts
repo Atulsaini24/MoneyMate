@@ -1,133 +1,103 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
-import { MongoClient } from 'mongodb';
 
-const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://atulsaini2496_db_user:zwGqQiwPh0ca1OEp@moneymate.uadcpfn.mongodb.net/moneymate?retryWrites=true&w=majority';
+/**
+ * Serves /api/* during `npm run dev` using the exact same handlers Vercel runs
+ * in production, so auth and validation behave identically in both places.
+ */
+function devApi(): Plugin {
+  const readBody = (req: any) =>
+    new Promise<any>((resolve, reject) => {
+      let body = '';
+      req.on('data', (c: Buffer) => (body += c));
+      req.on('end', () => {
+        try { resolve(body ? JSON.parse(body) : {}); } catch (e) { reject(e); }
+      });
+      req.on('error', reject);
+    });
 
-let cachedClient: MongoClient | null = null;
-async function getMongoDb() {
-  if (!cachedClient) {
-    cachedClient = new MongoClient(mongoUri);
-    await cachedClient.connect();
-  }
-  return cachedClient.db('moneymate');
-}
-
-function apiSyncPlugin() {
   return {
-    name: 'api-sync-dev-plugin',
-    configureServer(server: any) {
-      server.middlewares.use(async (req: any, res: any, next: any) => {
-        if (!req.url?.startsWith('/api/sync')) {
-          return next();
-        }
+    name: 'moneymate-dev-api',
+    configureServer(server) {
+      server.middlewares.use(async (req: any, res: any, next) => {
+        const url = req.url?.split('?')[0];
+        if (!['/api/sync', '/api/scan-receipt', '/api/ask', '/api/push-subscribe'].includes(url)) return next();
 
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-        if (req.method === 'OPTIONS') {
-          res.statusCode = 200;
-          return res.end();
-        }
+        const send = (status: number, payload: unknown) => {
+          res.statusCode = status;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify(payload));
+        };
 
         try {
-          const db = await getMongoDb();
-          const ledgersCol = db.collection('user_ledgers');
-          const usersCol = db.collection('users');
-
-          const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-          const userId = url.searchParams.get('userId');
-
-          if (!userId) {
-            res.statusCode = 400;
-            res.setHeader('Content-Type', 'application/json');
-            return res.end(JSON.stringify({ error: 'Missing userId parameter' }));
+          const { verifyRequest, AuthError } = await import('./api/_auth.ts');
+          let user;
+          try {
+            user = await verifyRequest(req.headers.authorization);
+          } catch (e) {
+            if (e instanceof AuthError) return send(401, { error: e.message });
+            throw e;
           }
 
-          if (req.method === 'GET') {
-            const record = await ledgersCol.findOne({ userId });
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            return res.end(JSON.stringify(record || {
-              transactions: [],
-              budgets: [],
-              goals: [],
-              friends: [],
-              settings: null,
-            }));
+          if (url === '/api/scan-receipt') {
+            const { extractReceipt, ReceiptError } = await import('./api/_receipt.ts');
+            try {
+              const body = await readBody(req);
+              return send(200, await extractReceipt(body.image, body.mediaType));
+            } catch (e: any) {
+              if (e instanceof ReceiptError) return send(e.status, { error: e.message });
+              throw e;
+            }
           }
 
-          if (req.method === 'POST') {
-            let body = '';
-            req.on('data', (chunk: any) => { body += chunk; });
-            req.on('end', async () => {
-              try {
-                const payload = JSON.parse(body || '{}');
-                if (payload.userInfo) {
-                  await usersCol.updateOne(
-                    { userId },
-                    {
-                      $set: {
-                        userId,
-                        email: payload.userInfo.email || null,
-                        name: payload.userInfo.displayName || payload.userInfo.name || 'Anonymous',
-                        lastActiveAt: new Date().toISOString()
-                      },
-                      $setOnInsert: { createdAt: new Date().toISOString() }
-                    },
-                    { upsert: true }
-                  );
-                }
-
-                await ledgersCol.updateOne(
-                  { userId },
-                  {
-                    $set: {
-                      userId,
-                      transactions: payload.transactions || [],
-                      budgets: payload.budgets || [],
-                      goals: payload.goals || [],
-                      friends: payload.friends || [],
-                      settings: payload.settings || null,
-                      updatedAt: new Date().toISOString()
-                    }
-                  },
-                  { upsert: true }
-                );
-
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ success: true, message: 'Saved to MongoDB Atlas' }));
-              } catch (parseErr: any) {
-                res.statusCode = 500;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: parseErr.message }));
-              }
-            });
-            return;
+          if (url === '/api/ask' || url === '/api/push-subscribe') {
+            // Reuse the production handler with a minimal req/res adapter
+            const mod = await import(url === '/api/ask' ? './api/ask.ts' : './api/push-subscribe.ts');
+            const body = await readBody(req);
+            const resShim: any = { statusCode: 200, setHeader: () => resShim, status(c: number) { this.statusCode = c; return this; }, json: (p: unknown) => send(resShim.statusCode, p) };
+            return mod.default({ method: req.method, headers: req.headers, body } as any, resShim);
           }
 
-          res.statusCode = 405;
-          res.end();
+          const { default: clientPromise } = await import('./api/_db.ts');
+          const { readLedger, writeLedger } = await import('./api/_ledger.ts');
+          const db = (await clientPromise).db('moneymate');
+          if (req.method === 'GET') return send(200, await readLedger(db, user));
+          if (req.method === 'POST') return send(200, { success: true, updatedAt: await writeLedger(db, user, await readBody(req)) });
+          return send(405, { error: 'Method not allowed' });
         } catch (err: any) {
-          console.error('[Vite Dev MongoDB Error]:', err);
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: err.message }));
+          console.error('[dev api]', err);
+          return send(500, { error: err?.message || 'Server error' });
         }
       });
-    }
+    },
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), apiSyncPlugin()],
-  resolve: {
-    alias: {
-      '@': path.resolve(import.meta.dirname, './src'),
+export default defineConfig(({ mode }) => {
+  // Expose server-only secrets (MONGODB_URI, ANTHROPIC_API_KEY) to the dev API.
+  // Only VITE_* variables ever reach the browser bundle.
+  Object.assign(process.env, loadEnv(mode, process.cwd(), ''));
+
+  return {
+    plugins: [react(), tailwindcss(), devApi()],
+    resolve: {
+      alias: { '@': path.resolve(import.meta.dirname, './src') },
     },
-  },
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              { name: 'firebase', test: /node_modules[\\/](firebase|@firebase)/ },
+              { name: 'charts', test: /node_modules[\\/](recharts|d3-|victory)/ },
+              { name: 'motion', test: /node_modules[\\/](framer-motion|motion-)/ },
+              { name: 'react', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
+            ],
+          },
+        },
+      },
+    },
+  };
 });

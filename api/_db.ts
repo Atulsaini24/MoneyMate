@@ -1,23 +1,18 @@
 import { MongoClient } from 'mongodb';
 
-const uri = process.env.MONGODB_URI || 'mongodb+srv://atulsaini2496_db_user:zwGqQiwPh0ca1OEp@moneymate.uadcpfn.mongodb.net/moneymate?retryWrites=true&w=majority';
-
-let client: MongoClient | null = null;
-let clientPromise: Promise<MongoClient>;
+// The connection string must come from the environment. Never commit it.
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  throw new Error('MONGODB_URI is not set. Add it to your Vercel project settings or local .env file.');
+}
 
 declare global {
+  // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-if (process.env.NODE_ENV === 'development') {
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri);
-    global._mongoClientPromise = client.connect();
-  }
-  clientPromise = global._mongoClientPromise;
-} else {
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
-}
+// Reuse one client across hot reloads and warm serverless invocations.
+const clientPromise: Promise<MongoClient> =
+  globalThis._mongoClientPromise ?? (globalThis._mongoClientPromise = new MongoClient(uri).connect());
 
 export default clientPromise;

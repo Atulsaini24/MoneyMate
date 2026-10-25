@@ -8,6 +8,50 @@ export interface Transaction {
   paymentMethod?: string;
   notes?: string;
   createdAt: string;
+  /** Income-tax deduction this counts towards (India) */
+  taxSection?: TaxSection | 'none';
+}
+
+export type TaxSection = '80C' | '80D' | '80CCD1B' | '80E' | '80G' | 'HRA' | '24B';
+
+export type AssetKind =
+  | 'bank' | 'cash' | 'fd' | 'mutual_fund' | 'stocks' | 'epf_ppf' | 'gold' | 'property' | 'crypto' | 'other_asset'
+  | 'home_loan' | 'car_loan' | 'personal_loan' | 'credit_card' | 'education_loan' | 'other_liability';
+
+export interface Asset {
+  id: string;
+  name: string;
+  kind: AssetKind;
+  value: number;
+  /** Units, ISIN, folio etc. for imported investments */
+  meta?: string;
+  updatedAt: string;
+  history: { date: string; value: number }[];
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  emoji: string;
+  /** Member display names. "You" is always members[0]. */
+  members: string[];
+  /** Optional UPI IDs by member name, for one-tap settle up */
+  upi?: Record<string, string>;
+  expenses: GroupExpense[];
+  createdAt: string;
+}
+
+export interface GroupExpense {
+  id: string;
+  description: string;
+  amount: number;
+  paidBy: string;
+  /** Equal split among these members, or exact shares */
+  splitAmong: string[];
+  shares?: Record<string, number>;
+  date: string;
+  /** A settle-up payment rather than a shared cost */
+  settlement?: boolean;
 }
 
 export interface Budget {
@@ -40,6 +84,8 @@ export interface FriendRecord {
   dueDate?: string;
   status: 'outstanding' | 'partially-paid' | 'settled';
   payments: FriendPayment[];
+  /** Their UPI ID, so you can pay them in one tap */
+  upiId?: string;
 }
 
 export interface FriendPayment {
@@ -58,6 +104,18 @@ export interface UserSettings {
   theme: 'dark' | 'light';
   reducedMotion: boolean;
   notifications: boolean;
+  /** Masks every amount on screen (handy in public). */
+  privacyMode?: boolean;
+  /** Your UPI ID, used for payment requests and QR codes */
+  upiId?: string;
+  accent?: 'gold' | 'emerald' | 'sapphire' | 'rose' | 'amethyst';
+  pushEnabled?: boolean;
+  /** Offer to move last month's surplus into a goal */
+  sweepEnabled?: boolean;
+  lastSweepMonth?: string;
+  /** End-to-end encryption metadata (never the key itself) */
+  encryption?: { enabled: boolean; salt: string; verifier: string };
+  taxProfile?: { grossSalary: number; otherIncome: number; basic: number; hraReceived: number; metro: boolean; extra: Partial<Record<TaxSection, number>> };
 }
 
 export type CategoryInfo = {

@@ -30,26 +30,26 @@ export const SpendingDonutChart: React.FC<SpendingDonutChartProps> = ({ data, to
     <div className="glass-card p-5 h-full flex flex-col justify-between">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#77736D]">
-            Expenditure Distribution
+          <h3 className="text-sm font-semibold text-mm-text">
+            Spending by category
           </h3>
-          <p className="text-xs text-[#B6B0A5] mt-0.5">Capital outflows by classification</p>
+          <p className="text-xs text-mm-text2 mt-0.5">This month, by category</p>
         </div>
         <button 
           onClick={() => navigate('/reports')}
-          className="text-xs text-[#D6BC86] font-medium hover:text-[#E9D8AF] transition-colors"
+          className="text-xs text-mm-gold font-medium hover:text-mm-gold-light transition-colors"
         >
-          View Analysis →
+          Details
         </button>
       </div>
 
       {sortedData.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 my-auto text-center">
-          <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#222228] flex items-center justify-center text-[#77736D] mb-3">
+          <div className="w-16 h-16 rounded-full border-2 border-dashed border-mm-elevated flex items-center justify-center text-mm-muted mb-3">
             <span className="text-xs font-mono">0%</span>
           </div>
-          <p className="text-xs font-medium text-[#B6B0A5]">No outflows recorded this month</p>
-          <p className="text-[11px] text-[#77736D] mt-0.5">Add an expense to visualize category distributions</p>
+          <p className="text-xs font-medium text-mm-text2">No outflows recorded this month</p>
+          <p className="text-[11px] text-mm-muted mt-0.5">Add an expense to visualize category distributions</p>
         </div>
       ) : (
         <div className="flex flex-col sm:flex-row items-center gap-6 my-auto">
@@ -73,8 +73,8 @@ export const SpendingDonutChart: React.FC<SpendingDonutChartProps> = ({ data, to
               </PieChart>
             </ResponsiveContainer>
             <div className="donut-center flex flex-col items-center justify-center text-center">
-              <span className="text-[10px] text-[#77736D] uppercase tracking-wider font-semibold">Total Spent</span>
-              <p className="text-lg font-bold text-[#F5F1E8] number-display tracking-tight">
+              <span className="text-[10px] text-mm-muted uppercase tracking-wider font-semibold">Total Spent</span>
+              <p className="text-lg font-bold text-mm-text number-display tracking-tight">
                 {formatCurrency(total)}
               </p>
             </div>
@@ -91,11 +91,11 @@ export const SpendingDonutChart: React.FC<SpendingDonutChartProps> = ({ data, to
                     className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ backgroundColor: LUXURY_SERIES_COLORS[i % LUXURY_SERIES_COLORS.length] }}
                   />
-                  <span className="text-[#B6B0A5] truncate">{item.name}</span>
+                  <span className="text-mm-text2 truncate">{item.name}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-[#77736D] text-[11px] font-mono">{percentage}%</span>
-                  <span className="font-semibold text-[#F5F1E8] number-display w-16 text-right">
+                  <span className="text-mm-muted text-[11px] font-mono">{percentage}%</span>
+                  <span className="font-semibold text-mm-text number-display w-16 text-right">
                     {formatCurrency(item.value)}
                   </span>
                 </div>

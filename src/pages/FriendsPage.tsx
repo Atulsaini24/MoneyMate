@@ -5,6 +5,8 @@ import {
   Calendar, Clock, DollarSign, Edit3, Trash2, ChevronDown, ChevronUp, AlertCircle
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { SettleUpSheet } from '@/components/shared/SettleUp';
+import { QrCode } from 'lucide-react';
 import { FriendRecord } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Modal } from '@/components/shared/Modal';
@@ -12,7 +14,10 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { EmptyState } from '@/components/shared/EmptyState';
 
 export const FriendsPage: React.FC = () => {
-  const { friends, addFriend, updateFriend, deleteFriend, addPayment, settleFriend } = useApp();
+  const { friends, addFriend, updateFriend, deleteFriend, addPayment, settleFriend, mutate } = useApp();
+  const [upiFor, setUpiFor] = useState<string | null>(null);
+  const upiFriend = friends.find(f => f.id === upiFor);
+  const upiRemaining = upiFriend ? Math.max(0, upiFriend.amount - upiFriend.payments.reduce((s, p) => s + p.amount, 0)) : 0;
   const [filter, setFilter] = useState<'all' | 'owed-to-me' | 'i-owe' | 'settled'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editRecord, setEditRecord] = useState<FriendRecord | null>(null);
@@ -133,17 +138,17 @@ export const FriendsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/30">
+            <div className="p-2 rounded-xl bg-mm-gold/15 text-mm-gold border border-mm-gold/30">
               <Users size={20} />
             </div>
-            <h1 className="text-xl md:text-2xl font-bold text-[#F5F1E8] tracking-tight">Capital Lending & IOU Ledger</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-mm-text tracking-tight">Capital Lending & IOU Ledger</h1>
           </div>
-          <p className="text-xs text-[#77736D] mt-1">Monitor money lent to associates, shared expenses, and debt settlements</p>
+          <p className="text-xs text-mm-muted mt-1">Monitor money lent to associates, shared expenses, and debt settlements</p>
         </div>
 
         <button
           onClick={() => { resetForm(); setShowAddModal(true); }}
-          className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-semibold text-xs tracking-wider uppercase transition-all shadow-sm active:scale-95 flex-shrink-0"
+          className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-semibold text-xs tracking-wider uppercase transition-all shadow-sm active:scale-95 flex-shrink-0"
         >
           <Plus size={15} strokeWidth={2.5} />
           <span className="hidden sm:inline">Add Record</span>
@@ -159,15 +164,15 @@ export const FriendsPage: React.FC = () => {
           className="glass-card p-4 sm:p-5 relative overflow-hidden specular-sheen min-w-0"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#77736D]">Receivable (Lent Out)</span>
-            <div className="p-2 rounded-xl bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/25">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-mm-muted">Receivable (Lent Out)</span>
+            <div className="p-2 rounded-xl bg-mm-gold/15 text-mm-gold border border-mm-gold/25">
               <ArrowDownLeft size={16} />
             </div>
           </div>
-          <p className="text-xl sm:text-2xl font-medium text-[#D6BC86] mt-2 number-display truncate">
+          <p className="text-xl sm:text-2xl font-medium text-mm-gold mt-2 number-display truncate">
             {formatCurrency(totalOwedToMe)}
           </p>
-          <p className="text-xs text-[#77736D] mt-1">
+          <p className="text-xs text-mm-muted mt-1">
             {friends.filter(f => f.type === 'owed-to-me' && f.status !== 'settled').length} active associates
           </p>
         </motion.div>
@@ -179,15 +184,15 @@ export const FriendsPage: React.FC = () => {
           className="glass-card p-4 sm:p-5 relative overflow-hidden specular-sheen min-w-0"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#77736D]">Payable (You Borrowed)</span>
-            <div className="p-2 rounded-xl bg-[#D98282]/15 text-[#D98282] border border-[#D98282]/25">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-mm-muted">Payable (You Borrowed)</span>
+            <div className="p-2 rounded-xl bg-mm-negative/15 text-mm-negative border border-mm-negative/25">
               <ArrowUpRight size={16} />
             </div>
           </div>
-          <p className="text-xl sm:text-2xl font-medium text-[#D98282] mt-2 number-display truncate">
+          <p className="text-xl sm:text-2xl font-medium text-mm-negative mt-2 number-display truncate">
             {formatCurrency(totalIOwe)}
           </p>
-          <p className="text-xs text-[#77736D] mt-1">
+          <p className="text-xs text-mm-muted mt-1">
             {friends.filter(f => f.type === 'i-owe' && f.status !== 'settled').length} liabilities pending
           </p>
         </motion.div>
@@ -199,15 +204,15 @@ export const FriendsPage: React.FC = () => {
           className="glass-card p-4 sm:p-5 relative overflow-hidden specular-sheen min-w-0"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#77736D]">Net Credit Position</span>
-            <div className={`p-2 rounded-xl border ${netBalance >= 0 ? 'bg-[#83C9A5]/15 text-[#83C9A5] border-[#83C9A5]/25' : 'bg-[#D98282]/15 text-[#D98282] border-[#D98282]/25'}`}>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-mm-muted">Net Credit Position</span>
+            <div className={`p-2 rounded-xl border ${netBalance >= 0 ? 'bg-mm-positive/15 text-mm-positive border-mm-positive/25' : 'bg-mm-negative/15 text-mm-negative border-mm-negative/25'}`}>
               <DollarSign size={16} />
             </div>
           </div>
-          <p className={`text-xl sm:text-2xl font-medium mt-2 number-display truncate ${netBalance >= 0 ? 'text-[#83C9A5]' : 'text-[#D98282]'}`}>
+          <p className={`text-xl sm:text-2xl font-medium mt-2 number-display truncate ${netBalance >= 0 ? 'text-mm-positive' : 'text-mm-negative'}`}>
             {netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance)}
           </p>
-          <p className="text-xs text-[#77736D] mt-1">
+          <p className="text-xs text-mm-muted mt-1">
             {netBalance >= 0 ? 'Net capital surplus with associates' : 'Net liabilities exceed receivables'}
           </p>
         </motion.div>
@@ -226,13 +231,13 @@ export const FriendsPage: React.FC = () => {
             onClick={() => setFilter(tab.key as any)}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 flex-shrink-0 ${
               filter === tab.key
-                ? 'bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/35 shadow-sm'
-                : 'bg-[#121215] text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.1)]'
+                ? 'bg-mm-gold/15 text-mm-gold border border-mm-gold/35 shadow-sm'
+                : 'bg-mm-bg2 text-mm-muted hover:text-mm-text border border-mm-line/10'
             }`}
           >
             <span>{tab.label}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-              filter === tab.key ? 'bg-[#D6BC86]/30 text-[#E9D8AF]' : 'bg-white/5 text-[#77736D]'
+              filter === tab.key ? 'bg-mm-gold/30 text-mm-gold-light' : 'bg-mm-text/5 text-mm-muted'
             }`}>
               {tab.count}
             </span>
@@ -268,48 +273,48 @@ export const FriendsPage: React.FC = () => {
                 layout
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-card p-4 transition-all hover:border-[rgba(214,188,134,0.24)]"
+                className="glass-card p-4 transition-all hover:border-mm-line/24"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   {/* Left: Avatar + Details */}
                   <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-[#19191D] border border-[rgba(214,188,134,0.2)] flex items-center justify-center text-sm font-semibold text-[#D6BC86] flex-shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-mm-elevated border border-mm-line/20 flex items-center justify-center text-sm font-semibold text-mm-gold flex-shrink-0">
                       {friend.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-medium text-[#F5F1E8] truncate">{friend.name}</h3>
+                        <h3 className="text-sm font-medium text-mm-text truncate">{friend.name}</h3>
                         {/* Type badge */}
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                           friend.type === 'owed-to-me'
-                            ? 'bg-[#D6BC86]/15 text-[#D6BC86] border border-[#D6BC86]/25'
-                            : 'bg-[#D98282]/15 text-[#D98282] border border-[#D98282]/25'
+                            ? 'bg-mm-gold/15 text-mm-gold border border-mm-gold/25'
+                            : 'bg-mm-negative/15 text-mm-negative border border-mm-negative/25'
                         }`}>
                           {friend.type === 'owed-to-me' ? 'Lent (Owed)' : 'Borrowed (Owe)'}
                         </span>
 
                         {/* Status badge */}
                         {friend.status === 'settled' ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#83C9A5]/15 text-[#83C9A5] border border-[#83C9A5]/25 font-medium flex items-center gap-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-mm-positive/15 text-mm-positive border border-mm-positive/25 font-medium flex items-center gap-1">
                             <CheckCircle2 size={10} /> Settled
                           </span>
                         ) : overdue ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D9B46F]/15 text-[#D9B46F] border border-[#D9B46F]/25 font-medium flex items-center gap-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-mm-warning/15 text-mm-warning border border-mm-warning/25 font-medium flex items-center gap-1">
                             <AlertCircle size={10} /> Overdue
                           </span>
                         ) : null}
                       </div>
 
                       {friend.description && (
-                        <p className="text-xs text-[#77736D] mt-0.5 truncate">{friend.description}</p>
+                        <p className="text-xs text-mm-muted mt-0.5 truncate">{friend.description}</p>
                       )}
 
-                      <div className="flex items-center gap-3 sm:gap-4 mt-2 text-[11px] text-[#77736D] flex-wrap">
+                      <div className="flex items-center gap-3 sm:gap-4 mt-2 text-[11px] text-mm-muted flex-wrap">
                         <span className="flex items-center gap-1">
                           <Calendar size={12} /> {formatDate(friend.date)}
                         </span>
                         {friend.dueDate && (
-                          <span className={`flex items-center gap-1 ${overdue ? 'text-[#D9B46F] font-medium' : ''}`}>
+                          <span className={`flex items-center gap-1 ${overdue ? 'text-mm-warning font-medium' : ''}`}>
                             <Clock size={12} /> Due: {formatDate(friend.dueDate)}
                           </span>
                         )}
@@ -318,19 +323,19 @@ export const FriendsPage: React.FC = () => {
                   </div>
 
                   {/* Right: Amounts */}
-                  <div className="flex sm:flex-col justify-between items-baseline sm:items-end sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-[rgba(214,188,134,0.06)] flex-shrink-0">
-                    <span className="text-xs sm:hidden text-[#77736D]">Total Amount:</span>
+                  <div className="flex sm:flex-col justify-between items-baseline sm:items-end sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-mm-line/6 flex-shrink-0">
+                    <span className="text-xs sm:hidden text-mm-muted">Total Amount:</span>
                     <div>
-                      <p className="text-base font-medium text-[#F5F1E8] number-display">
+                      <p className="text-base font-medium text-mm-text number-display">
                         {formatCurrency(friend.amount)}
                       </p>
                       {friend.status !== 'settled' && totalPaid > 0 && (
-                        <p className="text-[11px] text-[#D6BC86] number-display">
+                        <p className="text-[11px] text-mm-gold number-display">
                           {formatCurrency(remaining)} remaining
                         </p>
                       )}
                       {friend.status === 'settled' && (
-                        <p className="text-[11px] text-[#83C9A5]">Fully settled</p>
+                        <p className="text-[11px] text-mm-positive">Fully settled</p>
                       )}
                     </div>
                   </div>
@@ -338,14 +343,14 @@ export const FriendsPage: React.FC = () => {
 
                 {/* Progress bar if partially paid */}
                 {friend.status !== 'settled' && (
-                  <div className="mt-3 pt-3 border-t border-[rgba(214,188,134,0.1)]">
-                    <div className="flex items-center justify-between text-[11px] text-[#77736D] mb-1.5">
+                  <div className="mt-3 pt-3 border-t border-mm-line/10">
+                    <div className="flex items-center justify-between text-[11px] text-mm-muted mb-1.5">
                       <span>Paid: {formatCurrency(totalPaid)}</span>
                       <span className="number-display">{progress}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-[#121215] rounded-full overflow-hidden border border-[rgba(214,188,134,0.1)]">
+                    <div className="w-full h-1.5 bg-mm-bg2 rounded-full overflow-hidden border border-mm-line/10">
                       <div
-                        className="h-full bg-[#D6BC86] rounded-full transition-all duration-500"
+                        className="h-full bg-mm-gold rounded-full transition-all duration-500"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -353,11 +358,11 @@ export const FriendsPage: React.FC = () => {
                 )}
 
                 {/* Actions row */}
-                <div className="mt-3 pt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(214,188,134,0.06)]">
+                <div className="mt-3 pt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-mm-line/6">
                   {/* Payments toggle */}
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : friend.id)}
-                    className="text-xs text-[#77736D] hover:text-[#F5F1E8] flex items-center gap-1 transition-colors"
+                    className="text-xs text-mm-muted hover:text-mm-text flex items-center gap-1 transition-colors"
                   >
                     {friend.payments.length > 0 ? (
                       <>
@@ -365,7 +370,7 @@ export const FriendsPage: React.FC = () => {
                         {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                       </>
                     ) : (
-                      <span className="text-[11px] text-[#77736D]">No payments recorded</span>
+                      <span className="text-[11px] text-mm-muted">No payments recorded</span>
                     )}
                   </button>
 
@@ -378,13 +383,19 @@ export const FriendsPage: React.FC = () => {
                             setPaymentRecord(friend);
                             setPayAmount(remaining.toString());
                           }}
-                          className="px-2.5 py-1 rounded-xl bg-[#D6BC86]/15 border border-[#D6BC86]/30 text-[#D6BC86] hover:bg-[#D6BC86]/25 text-xs font-semibold transition-all shadow-sm"
+                          className="px-2.5 py-1 rounded-xl bg-mm-gold/15 border border-mm-gold/30 text-mm-gold hover:bg-mm-gold/25 text-xs font-semibold transition-all shadow-sm"
                         >
                           Record Payment
                         </button>
                         <button
+                          onClick={() => setUpiFor(friend.id)}
+                          className="px-2.5 py-1 rounded-xl bg-mm-positive/12 border border-mm-positive/30 text-mm-positive hover:bg-mm-positive/20 text-xs font-semibold transition-all flex items-center gap-1"
+                        >
+                          <QrCode size={12} /> {friend.type === 'owed-to-me' ? 'Request' : 'Pay'} via UPI
+                        </button>
+                        <button
                           onClick={() => settleFriend(friend.id)}
-                          className="p-1.5 rounded-lg hover:bg-white/5 text-[#77736D] hover:text-[#83C9A5] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-mm-text/5 text-mm-muted hover:text-mm-positive transition-colors"
                           title="Mark settled"
                         >
                           <CheckCircle2 size={16} />
@@ -393,14 +404,14 @@ export const FriendsPage: React.FC = () => {
                     )}
                     <button
                       onClick={() => handleOpenEdit(friend)}
-                      className="p-1.5 rounded-lg hover:bg-white/5 text-[#77736D] hover:text-[#F5F1E8] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-mm-text/5 text-mm-muted hover:text-mm-text transition-colors"
                       title="Edit"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => setDeleteId(friend.id)}
-                      className="p-1.5 rounded-lg hover:bg-[#D98282]/10 text-[#77736D] hover:text-[#D98282] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-mm-negative/10 text-mm-muted hover:text-mm-negative transition-colors"
                       title="Delete"
                     >
                       <Trash2 size={14} />
@@ -415,20 +426,20 @@ export const FriendsPage: React.FC = () => {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden mt-3 pt-3 border-t border-[rgba(214,188,134,0.12)]"
+                      className="overflow-hidden mt-3 pt-3 border-t border-mm-line/12"
                     >
-                      <p className="text-xs font-semibold text-[#B6B0A5] mb-2">Payment History</p>
+                      <p className="text-xs font-semibold text-mm-text2 mb-2">Payment History</p>
                       <div className="space-y-1.5">
                         {friend.payments.map((p, idx) => (
                           <div
                             key={p.id || idx}
-                            className="flex items-center justify-between text-xs p-2 rounded-lg bg-[#121215] border border-[rgba(214,188,134,0.08)]"
+                            className="flex items-center justify-between text-xs p-2 rounded-lg bg-mm-bg2 border border-mm-line/8"
                           >
                             <div>
-                              <p className="font-medium text-[#F5F1E8] number-display">{formatCurrency(p.amount)}</p>
-                              {p.notes && <p className="text-[10px] text-[#77736D]">{p.notes}</p>}
+                              <p className="font-medium text-mm-text number-display">{formatCurrency(p.amount)}</p>
+                              {p.notes && <p className="text-[10px] text-mm-muted">{p.notes}</p>}
                             </div>
-                            <span className="text-[10px] text-[#77736D]">{formatDate(p.date)}</span>
+                            <span className="text-[10px] text-mm-muted">{formatDate(p.date)}</span>
                           </div>
                         ))}
                       </div>
@@ -451,14 +462,14 @@ export const FriendsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => { setShowAddModal(false); resetForm(); }}
-              className="px-4 py-3 rounded-xl text-xs font-semibold text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.12)] bg-[#121215]"
+              className="px-4 py-3 rounded-xl text-xs font-semibold text-mm-muted hover:text-mm-text border border-mm-line/12 bg-mm-bg2"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSaveRecord}
-              className="flex-1 py-3 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-md"
+              className="flex-1 py-3 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-md"
             >
               {editRecord ? 'Update Record' : 'Save Record'}
             </button>
@@ -467,27 +478,27 @@ export const FriendsPage: React.FC = () => {
       >
         <form onSubmit={handleSaveRecord} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-[#B6B0A5] mb-1.5">Person Name</label>
+            <label className="block text-xs font-medium text-mm-text2 mb-1.5">Person Name</label>
             <input
               type="text"
               required
               placeholder="e.g., Alex Johnson"
               value={formName}
               onChange={e => setFormName(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#B6B0A5] mb-1.5">Record Type</label>
+            <label className="block text-xs font-medium text-mm-text2 mb-1.5">Record Type</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setFormType('owed-to-me')}
                 className={`py-2 px-3 rounded-xl text-xs font-semibold border text-center transition-all ${
                   formType === 'owed-to-me'
-                    ? 'bg-[#D6BC86]/15 border-[#D6BC86]/40 text-[#D6BC86]'
-                    : 'border-[rgba(214,188,134,0.1)] text-[#77736D] hover:text-[#F5F1E8]'
+                    ? 'bg-mm-gold/15 border-mm-gold/40 text-mm-gold'
+                    : 'border-mm-line/10 text-mm-muted hover:text-mm-text'
                 }`}
               >
                 I Lent (They owe me)
@@ -497,8 +508,8 @@ export const FriendsPage: React.FC = () => {
                 onClick={() => setFormType('i-owe')}
                 className={`py-2 px-3 rounded-xl text-xs font-semibold border text-center transition-all ${
                   formType === 'i-owe'
-                    ? 'bg-[#D98282]/15 border-[#D98282]/40 text-[#D98282]'
-                    : 'border-[rgba(214,188,134,0.1)] text-[#77736D] hover:text-[#F5F1E8]'
+                    ? 'bg-mm-negative/15 border-mm-negative/40 text-mm-negative'
+                    : 'border-mm-line/10 text-mm-muted hover:text-mm-text'
                 }`}
               >
                 I Borrowed (I owe them)
@@ -507,7 +518,7 @@ export const FriendsPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#B6B0A5] mb-1.5">Total Capital Amount (₹)</label>
+            <label className="block text-xs font-medium text-mm-text2 mb-1.5">Total Capital Amount (₹)</label>
             <input
               type="number"
               step="any"
@@ -516,32 +527,46 @@ export const FriendsPage: React.FC = () => {
               placeholder="0.00"
               value={formAmount}
               onChange={e => setFormAmount(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50 number-display"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 number-display"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#B6B0A5] mb-1.5">Description / Purpose</label>
+            <label className="block text-xs font-medium text-mm-text2 mb-1.5">Description / Purpose</label>
             <input
               type="text"
               placeholder="e.g. Dinner split, Concert tickets, Bridge capital"
               value={formDesc}
               onChange={e => setFormDesc(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#B6B0A5] mb-1.5">Due Date (Optional)</label>
+            <label className="block text-xs font-medium text-mm-text2 mb-1.5">Due Date (Optional)</label>
             <input
               type="date"
               value={formDueDate}
               onChange={e => setFormDueDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] focus:outline-none focus:border-[#D6BC86]/50 [color-scheme:dark]"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark]"
             />
           </div>
         </form>
       </Modal>
+
+      {upiFriend && (
+        <SettleUpSheet
+          open={!!upiFriend}
+          onClose={() => setUpiFor(null)}
+          direction={upiFriend.type === 'owed-to-me' ? 'collect' : 'pay'}
+          person={upiFriend.name}
+          amount={upiRemaining}
+          note={upiFriend.description || 'what we split'}
+          theirUpi={upiFriend.upiId}
+          onSaveTheirUpi={vpa => mutate(s => ({ ...s, friends: s.friends.map(f => (f.id === upiFriend.id ? { ...f, upiId: vpa } : f)) }))}
+          onMarkPaid={() => addPayment(upiFriend.id, { amount: upiRemaining, date: new Date().toISOString(), notes: 'Settled via UPI' })}
+        />
+      )}
 
       {/* Record Payment Modal */}
       <Modal
@@ -553,14 +578,14 @@ export const FriendsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setPaymentRecord(null)}
-              className="px-4 py-3 rounded-xl text-xs font-semibold text-[#77736D] hover:text-[#F5F1E8] border border-[rgba(214,188,134,0.12)] bg-[#121215]"
+              className="px-4 py-3 rounded-xl text-xs font-semibold text-mm-muted hover:text-mm-text border border-mm-line/12 bg-mm-bg2"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleRecordPayment}
-              className="flex-1 py-3 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-md cursor-pointer"
+              className="flex-1 py-3 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-md cursor-pointer"
             >
               Confirm Settlement
             </button>
@@ -569,7 +594,7 @@ export const FriendsPage: React.FC = () => {
       >
         <form onSubmit={handleRecordPayment} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-[#B6B0A5] mb-1.5">Payment Amount (₹)</label>
+            <label className="block text-xs font-medium text-mm-text2 mb-1.5">Payment Amount (₹)</label>
             <input
               type="number"
               step="any"
@@ -577,18 +602,18 @@ export const FriendsPage: React.FC = () => {
               min="0.01"
               value={payAmount}
               onChange={e => setPayAmount(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50 number-display"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 number-display"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#B6B0A5] mb-1.5">Notes (Optional)</label>
+            <label className="block text-xs font-medium text-mm-text2 mb-1.5">Notes (Optional)</label>
             <input
               type="text"
               placeholder="e.g. Bank Transfer, UPI, Cash settlement"
               value={payNotes}
               onChange={e => setPayNotes(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#121215] border border-[rgba(214,188,134,0.16)] text-sm text-[#F5F1E8] placeholder:text-[#77736D] focus:outline-none focus:border-[#D6BC86]/50"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50"
             />
           </div>
         </form>

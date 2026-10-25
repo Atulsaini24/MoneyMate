@@ -69,19 +69,19 @@ export const OnboardingTourModal: React.FC<OnboardingTourModalProps> = ({ isOpen
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.2 }}
-          className="glass-card-elevated max-w-sm w-full relative z-10 overflow-hidden border border-[rgba(214,188,134,0.18)] shadow-2xl bg-[#19191D]"
+          className="glass-card-elevated max-w-sm w-full relative z-10 overflow-hidden border border-mm-line/18 shadow-2xl bg-mm-elevated"
         >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-3.5 right-3.5 z-20 p-2 rounded-xl bg-black/60 hover:bg-white/10 text-[#77736D] hover:text-[#F5F1E8] transition-colors"
+            className="absolute top-3.5 right-3.5 z-20 p-2 rounded-xl bg-black/60 hover:bg-mm-text/10 text-mm-muted hover:text-mm-text transition-colors"
             aria-label="Close"
           >
             <X size={16} />
           </button>
 
           {/* Slide Image */}
-          <div className="relative h-60 w-full bg-[#0B0B0D] overflow-hidden">
+          <div className="relative h-60 w-full bg-mm-bg overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.img
                 key={slide.image}
@@ -94,13 +94,13 @@ export const OnboardingTourModal: React.FC<OnboardingTourModalProps> = ({ isOpen
                 className="w-full h-full object-cover object-top"
               />
             </AnimatePresence>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#19191D] via-transparent to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-mm-elevated via-transparent to-transparent pointer-events-none" />
           </div>
 
           {/* Content */}
           <div className="p-6 pt-2 text-center">
-            <h3 className="text-lg font-semibold text-[#F5F1E8] font-serif tracking-tight">{slide.title}</h3>
-            <p className="text-xs text-[#B6B0A5] mt-2 leading-relaxed h-12">
+            <h3 className="text-lg font-semibold text-mm-text font-serif tracking-tight">{slide.title}</h3>
+            <p className="text-xs text-mm-text2 mt-2 leading-relaxed h-12">
               {slide.description}
             </p>
 
@@ -112,8 +112,8 @@ export const OnboardingTourModal: React.FC<OnboardingTourModalProps> = ({ isOpen
                   onClick={() => setCurrentSlide(idx)}
                   className={`h-1.5 rounded-full transition-all ${
                     idx === currentSlide
-                      ? 'w-6 bg-[#D6BC86]'
-                      : 'w-1.5 bg-white/20 hover:bg-white/40'
+                      ? 'w-6 bg-mm-gold'
+                      : 'w-1.5 bg-mm-text/20 hover:bg-mm-text/40'
                   }`}
                   aria-label={`Go to slide ${idx + 1}`}
                 />
@@ -125,10 +125,10 @@ export const OnboardingTourModal: React.FC<OnboardingTourModalProps> = ({ isOpen
               <button
                 onClick={prevSlide}
                 disabled={currentSlide === 0}
-                className={`p-2.5 rounded-xl border border-[rgba(214,188,134,0.14)] transition-colors ${
+                className={`p-2.5 rounded-xl border border-mm-line/14 transition-colors ${
                   currentSlide === 0
-                    ? 'opacity-30 cursor-not-allowed text-[#77736D]'
-                    : 'text-[#F5F1E8] hover:bg-white/5 active:scale-95'
+                    ? 'opacity-30 cursor-not-allowed text-mm-muted'
+                    : 'text-mm-text hover:bg-mm-text/5 active:scale-95'
                 }`}
                 aria-label="Previous slide"
               >
@@ -137,7 +137,7 @@ export const OnboardingTourModal: React.FC<OnboardingTourModalProps> = ({ isOpen
 
               <button
                 onClick={nextSlide}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#D6BC86] hover:bg-[#E9D8AF] text-[#0B0B0D] font-semibold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-sm"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-semibold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-sm"
               >
                 {currentSlide === SLIDES.length - 1 ? (
                   <>

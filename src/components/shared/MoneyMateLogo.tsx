@@ -25,7 +25,7 @@ export const MoneyMateLogo: React.FC<MoneyMateLogoProps> = ({
         }}
       >
         {/* Subtle top edge champagne light */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#E9D8AF]/40 to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-mm-gold-light/40 to-transparent pointer-events-none" />
 
         {/* Minimalist Geometric Monogram */}
         <svg
@@ -50,11 +50,11 @@ export const MoneyMateLogo: React.FC<MoneyMateLogoProps> = ({
       {showText && (
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1 leading-tight">
-            <span className="text-[15px] sm:text-[17px] font-bold tracking-tight text-[#F5F1E8] truncate">
-              Money<span className="text-[#D6BC86] font-medium">Mate</span>
+            <span className="text-[15px] sm:text-[17px] font-bold tracking-tight text-mm-text truncate">
+              Money<span className="text-mm-gold font-medium">Mate</span>
             </span>
           </div>
-          <span className="text-[8px] sm:text-[9px] uppercase tracking-[0.16em] text-[#77736D] font-semibold truncate hidden xs:block">
+          <span className="text-[8px] sm:text-[9px] uppercase tracking-[0.16em] text-mm-muted font-semibold truncate hidden xs:block">
             Private Wealth
           </span>
         </div>
