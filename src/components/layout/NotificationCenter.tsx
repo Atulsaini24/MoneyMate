@@ -10,7 +10,7 @@ const SEEN_KEY = 'moneymate:seen-insights';
 const isPhone = () => window.matchMedia('(max-width: 639px)').matches;
 
 /** Bell with a badge for unseen warnings. Popover on desktop, sheet on phones. */
-export const NotificationCenter: React.FC = () => {
+export const NotificationCenter: React.FC<{ compact?: boolean }> = () => {
   const { insights } = useInsights();
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState(false);
