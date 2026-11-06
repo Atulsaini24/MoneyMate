@@ -1,450 +1,255 @@
-import React, { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  User, DollarSign, Sparkles, Moon, Sun, 
-  Download, Upload, Check, Settings,
-  Calendar, Compass, Crown, Cloud, CloudCheck, ShieldCheck,
-  Eye, EyeOff,
-} from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Download, Upload, LogOut, LogIn, RefreshCw, Check, ShieldAlert, Trash2, HardDrive } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { MoreSettings } from '@/components/settings/MoreSettings';
 import { useAuth } from '@/context/AuthContext';
-import { OnboardingTourModal } from '@/components/shared/OnboardingTourModal';
-import { AuthModal } from '@/components/shared/AuthModal';
-import { MoneyMateLogo } from '@/components/shared/MoneyMateLogo';
+import { CURRENCIES } from '@/lib/defaults';
+import { isValidVpa } from '@/lib/upi';
+import { enablePush, disablePush, pushSupported } from '@/lib/push';
+import { cn } from '@/lib/utils';
+import type { UserSettings } from '@/types';
+import { Avatar, SyncStatus } from '@/components/layout/SyncStatus';
+import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
+import { Button, Field, Input, Page, PageHeader, Segmented, Select, Switch } from '@/components/ui';
+import { playSuccess, setSoundEnabled } from '@/lib/sound';
 
-const CURRENCIES = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee (₹)' },
-  { code: 'USD', symbol: '$', name: 'US Dollar ($)' },
-  { code: 'EUR', symbol: '€', name: 'Euro (€)' },
-  { code: 'GBP', symbol: '£', name: 'British Pound (£)' },
-  { code: 'AED', symbol: 'AED', name: 'UAE Dirham (AED)' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar (S$)' },
+const ACCENTS: { id: NonNullable<UserSettings['accent']>; name: string; light: string; dark: string }[] = [
+  { id: 'peacock', name: 'Peacock', light: '#0B6B63', dark: '#4DC0AE' },
+  { id: 'gold', name: 'Marigold', light: '#8F5E00', dark: '#F2B847' },
+  { id: 'emerald', name: 'Leaf', light: '#1B7547', dark: '#62C995' },
+  { id: 'sapphire', name: 'Indigo', light: '#2552A6', dark: '#8DB4F5' },
+  { id: 'rose', name: 'Rose', light: '#B0345A', dark: '#F29BB4' },
+  { id: 'amethyst', name: 'Plum', light: '#6544B8', dark: '#B9A3F5' },
 ];
 
+const Section: React.FC<{ title: string; description?: string; children: React.ReactNode }> = ({ title, description, children }) => (
+  <section className="grid grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] gap-x-8 gap-y-3 py-7 border-t border-mm-line/8 first:border-t-0 first:pt-0">
+    <div>
+      <h2 className="text-[17px] font-semibold text-mm-text">{title}</h2>
+      {description && <p className="text-[13px] text-mm-muted mt-1 leading-relaxed">{description}</p>}
+    </div>
+    <div className="panel p-5 sm:p-6 space-y-5">{children}</div>
+  </section>
+);
+
+const Row: React.FC<{ title: string; text?: React.ReactNode; children?: React.ReactNode }> = ({ title, text, children }) => (
+  <div className="flex items-center justify-between gap-4">
+    <div className="min-w-0">
+      <p className="text-[15px] font-medium text-mm-text">{title}</p>
+      {text && <p className="text-[13px] text-mm-muted mt-0.5 leading-relaxed">{text}</p>}
+    </div>
+    {children}
+  </div>
+);
+
 export const SettingsPage: React.FC = () => {
-  const { 
-    settings, updateSettings, exportData, importData, togglePrivacy, 
-    showToast, isCloudSynced 
-  } = useApp();
-  const { user } = useAuth();
-
+  const app = useApp();
+  const { settings, updateSettings, exportData, importData, togglePrivacy, showToast, refreshCloudData, resetData, transactions, enableEncryption, disableEncryption } = app;
+  const { user, isConfigured, signOut, exitGuest } = useAuth();
   const [name, setName] = useState(settings.name);
-  const [showTour, setShowTour] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [upi, setUpi] = useState(settings.upiId || '');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [restore, setRestore] = useState<string | null>(null);
+  const [enc, setEnc] = useState<'on' | 'off' | null>(null);
+  const [p1, setP1] = useState(''), [p2, setP2] = useState(''), [ack, setAck] = useState(false), [encErr, setEncErr] = useState(''), [encBusy, setEncBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const accent = settings.accent || 'peacock';
+  const displayName = settings.name || user?.displayName || 'You';
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    updateSettings({ name: name.trim() });
-    showToast('Profile credentials saved', 'success');
+  const exportJson = () => {
+    const blob = new Blob([exportData()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { href: url, download: `moneymate-backup-${new Date().toISOString().slice(0, 10)}.json` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Backup downloaded');
   };
 
-  const handleCurrencyChange = (currCode: string) => {
-    const found = CURRENCIES.find(c => c.code === currCode);
-    if (found) {
-      updateSettings({ currency: found.code, currencySymbol: found.symbol });
-      showToast(`Valuation currency set to ${found.name}`, 'info');
-    }
-  };
-
-  const handleExportData = () => {
-    try {
-      const dataStr = exportData();
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `moneymate-ledger-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      showToast('Ledger export completed', 'success');
-    } catch {
-      showToast('Failed to export ledger', 'error');
-    }
-  };
-
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    file.text().then(setRestore).catch(() => showToast('Couldn’t read that file', 'error'));
+  };
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = event.target?.result as string;
-        const ok = importData(json);
-        if (ok) {
-          showToast('Ledger restored successfully', 'success');
-        } else {
-          showToast('Invalid ledger backup format', 'error');
-        }
-      } catch {
-        showToast('Error reading ledger backup file', 'error');
+  const togglePush = async () => {
+    setPushBusy(true);
+    try {
+      if (settings.pushEnabled) { await disablePush(); updateSettings({ pushEnabled: false }, { silent: true }); }
+      else {
+        const problem = await enablePush();
+        if (problem) showToast(problem, 'error');
+        else { updateSettings({ pushEnabled: true }, { silent: true }); showToast('You’ll get a reminder the day before bills are due'); }
       }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch { showToast('Couldn’t change reminders. Try again.', 'error'); }
+    setPushBusy(false);
+  };
+
+  const submitEnc = async () => {
+    setEncErr('');
+    if (enc === 'on') {
+      if (p1.length < 10) return setEncErr('Use at least 10 characters. A short sentence works well.');
+      if (p1 !== p2) return setEncErr('The two passphrases don’t match.');
+      if (!ack) return setEncErr('Tick the box to confirm you’ve saved it.');
+      setEncBusy(true); await enableEncryption(p1); setEncBusy(false);
+    } else {
+      setEncBusy(true); const ok = await disableEncryption(p1); setEncBusy(false);
+      if (!ok) return setEncErr('That passphrase is wrong.');
+    }
+    setEnc(null); setP1(''); setP2(''); setAck(false);
   };
 
   return (
-    <div className="min-h-screen pb-32 lg:pb-8 max-w-4xl mx-auto px-4 md:px-6 py-6 space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-mm-gold/15 text-mm-gold border border-mm-gold/30">
-            <Settings size={20} />
+    <Page width="default">
+      <PageHeader title="Settings" />
+
+      <Section title="Account" description={user ? 'Your data syncs to your account and is available on every device you sign in on.' : 'Right now everything is stored in this browser only.'}>
+        <div className="flex items-center gap-4">
+          <Avatar name={displayName} size={52} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[17px] font-semibold text-mm-text truncate">{user ? (user.displayName || displayName) : 'On this device'}</p>
+            {user?.email && <p className="text-sm text-mm-text2 truncate">{user.email}</p>}
+            <SyncStatus className="mt-0.5" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-mm-text tracking-tight">
-            Settings & Architecture
-          </h1>
         </div>
-        <p className="text-xs text-mm-muted mt-1">Profile, appearance, currency and your data</p>
-      </div>
-
-      {/* Profile Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass-card p-6 specular-sheen"
-      >
-        <div className="flex items-center gap-2 mb-4 text-mm-gold">
-          <User size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Investor Profile</h2>
-        </div>
-
-        <form onSubmit={handleSaveProfile} className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center gap-4 pb-2">
-            <div className="w-14 h-14 rounded-2xl bg-mm-elevated border border-mm-line/24 flex items-center justify-center text-xl font-medium text-mm-gold flex-shrink-0">
-              {settings.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 w-full space-y-1.5">
-              <label className="block text-xs font-medium text-mm-text2">Account Holder Name</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Your Name"
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 placeholder:text-mm-muted"
-                />
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold text-xs font-semibold uppercase tracking-wider transition-all shadow-sm active:scale-95"
-                >
-                  Save
-                </button>
-              </div>
+        {user ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" icon={RefreshCw} loading={syncing} onClick={async () => { setSyncing(true); await refreshCloudData(); setSyncing(false); }}>Sync now</Button>
+            <Button variant="ghost" icon={LogOut} onClick={() => signOut()}>Sign out</Button>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-mm-bg2 p-4 flex gap-3">
+            <HardDrive size={18} className="text-mm-text2 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-mm-text2 leading-relaxed">If you clear this browser’s data, it’s gone. {isConfigured ? 'Sign in to back it up and use it on your phone and laptop. What you’ve added here moves to your account.' : 'Export a backup below now and then.'}</p>
+              {isConfigured && <Button icon={LogIn} className="mt-3" onClick={exitGuest}>Sign in or create account</Button>}
             </div>
           </div>
+        )}
+      </Section>
+
+      <Section title="Profile">
+        <form className="flex gap-2 items-end" onSubmit={e => { e.preventDefault(); if (name.trim() && name.trim() !== settings.name) updateSettings({ name: name.trim() }); }}>
+          <Field label="Your name" htmlFor="s-name" className="flex-1"><Input id="s-name" value={name} onChange={e => setName(e.target.value)} placeholder="What should we call you?" autoComplete="name" /></Field>
+          <Button type="submit" variant="secondary" disabled={!name.trim() || name.trim() === settings.name}>Save</Button>
         </form>
-      </motion.div>
+      </Section>
 
-      {/* Firebase Cloud Sync & Database Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.02 }}
-        className="glass-card p-6 specular-sheen border border-mm-gold/30 bg-gradient-to-br from-mm-bg2 to-[#18181D]"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-mm-gold">
-            <Cloud size={18} />
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Account & sync</h2>
-          </div>
-          <div className={`px-2.5 py-1 rounded-full text-[11px] font-medium flex items-center gap-1.5 border ${
-            user 
-              ? 'bg-mm-positive/10 text-mm-positive border-mm-positive/30' 
-              : 'bg-mm-gold/10 text-mm-gold border-mm-gold/30'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${user ? 'bg-mm-positive animate-pulse' : 'bg-mm-gold'}`} />
-            {user ? (isCloudSynced ? 'Connected & Live' : 'Cloud Connected') : 'Local Storage Mode'}
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-mm-bg/70 border border-mm-line/14">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-mm-text">
-                {user ? (user.displayName || user.email || 'Signed in') : 'Not signed in'}
-              </span>
-              {user && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-mm-gold/15 text-mm-gold border border-mm-gold/25">
-                  FIREBASE AUTH
+      <Section title="Appearance">
+        <Row title="Theme">
+          <Segmented label="Theme" size="sm" value={settings.theme} onChange={v => updateSettings({ theme: v }, { silent: true })}
+            options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'system', label: 'Auto' }]} />
+        </Row>
+        <div>
+          <p className="text-[15px] font-medium text-mm-text mb-3">Accent colour</p>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2" role="radiogroup" aria-label="Accent colour">
+            {ACCENTS.map(a => (
+              <button key={a.id} role="radio" aria-checked={accent === a.id} onClick={() => updateSettings({ accent: a.id }, { silent: true })}
+                className={cn('flex flex-col items-center gap-2 py-3 rounded-xl border transition-colors', accent === a.id ? 'border-mm-text/40 bg-mm-bg2' : 'border-mm-line/10 hover:border-mm-line/25')}>
+                <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${a.light} 50%, ${a.dark} 50%)` }}>
+                  {accent === a.id && <Check size={15} strokeWidth={3} className="text-white drop-shadow" />}
                 </span>
-              )}
-            </div>
-            <p className="text-xs text-mm-muted">
-              {user 
-                ? `Synchronizing transactions, monthly budgets, savings goals & debts to Firebase Firestore.`
-                : `Transactions and budgets are stored locally on this device. Sign in with Firebase to enable real-time cross-device sync.`}
-            </p>
-          </div>
-
-          <button
-            onClick={() => setShowAuthModal(true)}
-            className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold text-xs font-semibold uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-2"
-          >
-            <Cloud size={14} />
-            {user ? 'Manage Cloud Sync' : 'Connect Cloud Vault'}
-          </button>
-        </div>
-      </motion.div>
-
-      {/* Currency & Financial Preferences */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.04 }}
-        className="glass-card p-6 space-y-4 specular-sheen"
-      >
-        <div className="flex items-center gap-2 mb-1 text-mm-gold">
-          <DollarSign size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Currency & Capital Standards</h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Currency selection */}
-          <div>
-            <label className="block text-xs font-medium text-mm-muted mb-1.5">Primary Valuation Currency</label>
-            <select
-              value={settings.currency}
-              onChange={e => handleCurrencyChange(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark]"
-            >
-              {CURRENCIES.map(curr => (
-                <option key={curr.code} value={curr.code}>
-                  {curr.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Budget start day */}
-          <div>
-            <label className="block text-xs font-medium text-mm-muted mb-1.5">Monthly Cycle Anchor Day</label>
-            <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-mm-muted" />
-              <select
-                value={settings.budgetStartDay || 1}
-                onChange={e => updateSettings({ budgetStartDay: parseInt(e.target.value) })}
-                className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark]"
-              >
-                {[1, 5, 10, 15, 20, 25, 28].map(day => (
-                  <option key={day} value={day}>
-                    {day === 1 ? '1st of the month (Standard)' : `${day}th of each month`}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <span className="text-[13px] text-mm-text2">{a.name}</span>
+              </button>
+            ))}
           </div>
         </div>
-      </motion.div>
+        <Row title="Hide amounts" text="Masks every balance on screen. Press H anywhere to switch.">
+          <Switch checked={Boolean(settings.privacyMode)} onChange={togglePrivacy} label="Hide amounts" />
+        </Row>
+        <Row title="Payment confirmation" text="A full-screen tick after you save a payment, like a UPI app.">
+          <Switch checked={settings.celebrations !== false} onChange={() => updateSettings({ celebrations: settings.celebrations === false }, { silent: true })} label="Payment confirmation" />
+        </Row>
+        <Row title="Sounds" text="A short chime when money is saved or moved.">
+          <Switch checked={settings.sounds !== false} onChange={() => { const on = settings.sounds === false; updateSettings({ sounds: on }, { silent: true }); if (on) { setSoundEnabled(true); playSuccess(); } }} label="Sounds" />
+        </Row>
+        <Row title="Reduce motion" text="Turns off animations and confetti.">
+          <Switch checked={Boolean(settings.reducedMotion)} onChange={() => updateSettings({ reducedMotion: !settings.reducedMotion }, { silent: true })} label="Reduce motion" />
+        </Row>
+      </Section>
 
-      {/* App Appearance & Behaviour */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08 }}
-        className="glass-card p-6 space-y-4 specular-sheen"
-      >
-        <div className="flex items-center gap-2 mb-1 text-mm-gold">
-          <Sparkles size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Appearance</h2>
+      <Section title="Money" description="Used for amounts, payment requests and QR codes.">
+        <Field label="Currency" htmlFor="s-cur" hint="Changes how amounts are shown. Existing numbers aren’t converted.">
+          <Select id="s-cur" value={settings.currency} onChange={e => { const c = CURRENCIES.find(x => x.code === e.target.value); if (c) updateSettings({ currency: c.code, currencySymbol: c.symbol }); }}>
+            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.name} ({c.symbol})</option>)}
+          </Select>
+        </Field>
+        <form className="flex gap-2 items-end" onSubmit={e => { e.preventDefault(); if (isValidVpa(upi)) updateSettings({ upiId: upi.trim() }); }}>
+          <Field label="Your UPI ID" htmlFor="s-upi" className="flex-1" error={upi && !isValidVpa(upi) ? 'That doesn’t look like a UPI ID (name@bank)' : undefined}>
+            <Input id="s-upi" value={upi} onChange={e => setUpi(e.target.value)} placeholder="name@okhdfcbank" autoCapitalize="none" autoComplete="off" />
+          </Field>
+          <Button type="submit" variant="secondary" disabled={!isValidVpa(upi) || upi.trim() === settings.upiId}>Save</Button>
+        </form>
+      </Section>
+
+      <Section title="Reminders">
+        <Row title="Bill reminders" text={!user ? 'Needs an account, because reminders are sent from the server.' : pushSupported() ? 'A notification the day before a bill or IOU is due.' : 'Not available in this browser. On iPhone, add MoneyMate to your Home Screen first.'}>
+          <Switch checked={Boolean(settings.pushEnabled)} onChange={togglePush} label="Bill reminders" busy={pushBusy} disabled={!user || !pushSupported() || Boolean(settings.encryption?.enabled)} />
+        </Row>
+        <Row title="Month-end savings nudge" text="In the first days of a month, offer to move last month’s leftover money into a goal.">
+          <Switch checked={settings.sweepEnabled !== false} onChange={() => updateSettings({ sweepEnabled: settings.sweepEnabled === false }, { silent: true })} label="Month-end savings nudge" />
+        </Row>
+      </Section>
+
+      {user && (
+        <Section title="Privacy" description="Optional. Your data is encrypted on this device before it’s synced.">
+          <Row title="End-to-end encryption" text={settings.encryption?.enabled ? 'On. Only your passphrase can unlock your data.' : 'Off. Data is protected by your account sign-in.'}>
+            <Switch checked={Boolean(settings.encryption?.enabled)} onChange={() => setEnc(settings.encryption?.enabled ? 'off' : 'on')} label="End-to-end encryption" />
+          </Row>
+        </Section>
+      )}
+
+      <Section title="Your data" description={`${transactions.length} transaction${transactions.length === 1 ? '' : 's'} recorded.`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Button variant="secondary" icon={Download} onClick={exportJson}>Download backup</Button>
+          <Button variant="secondary" icon={Upload} onClick={() => fileRef.current?.click()}>Restore from backup</Button>
+          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={onFile} />
         </div>
-
-        <div className="space-y-3">
-          {/* Theme */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-mm-bg2 border border-mm-line/12">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-mm-gold/15 text-mm-gold">
-                {settings.theme === 'dark' ? <Moon size={17} /> : <Sun size={17} />}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-mm-text">Obsidian & Champagne Luxury Theme</p>
-                <p className="text-xs text-mm-muted">Matte obsidian titanium with restrained champagne gold details</p>
-              </div>
-            </div>
-            <button
-              onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' }, { silent: true })}
-              role="switch"
-              aria-checked={settings.theme === 'dark'}
-              aria-label="Dark theme"
-              className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
-                settings.theme === 'dark' ? 'bg-mm-gold' : 'bg-mm-elevated border border-mm-line/20'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 rounded-full transition-transform ${
-                  settings.theme === 'dark' ? 'bg-mm-bg translate-x-5' : 'bg-mm-muted translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Reduced Motion */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-mm-bg2 border border-mm-line/12">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-mm-gold/15 text-mm-gold">
-                <Sparkles size={17} />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-mm-text">Animations</p>
-                <p className="text-xs text-mm-muted">Turn off to reduce movement across the app</p>
-              </div>
-            </div>
-            <button
-              onClick={() => updateSettings({ reducedMotion: !settings.reducedMotion })}
-              role="switch"
-              aria-checked={!settings.reducedMotion}
-              aria-label="Animations"
-              className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
-                !settings.reducedMotion ? 'bg-mm-gold' : 'bg-mm-elevated border border-mm-line/20'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 rounded-full transition-transform ${
-                  !settings.reducedMotion ? 'bg-mm-bg translate-x-5' : 'bg-mm-muted translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 pt-1">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-mm-gold/15 text-mm-gold">
-                {settings.privacyMode ? <EyeOff size={17} /> : <Eye size={17} />}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-mm-text">Hide amounts</p>
-                <p className="text-xs text-mm-muted">Masks every balance on screen. Press H anywhere to toggle.</p>
-              </div>
-            </div>
-            <button
-              onClick={togglePrivacy}
-              role="switch"
-              aria-checked={Boolean(settings.privacyMode)}
-              aria-label="Hide amounts"
-              className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 ${
-                settings.privacyMode ? 'bg-mm-gold' : 'bg-mm-elevated border border-mm-line/20'
-              }`}
-            >
-              <div className={`w-5 h-5 rounded-full transition-transform ${settings.privacyMode ? 'bg-mm-bg translate-x-5' : 'bg-mm-muted translate-x-0'}`} />
-            </button>
-          </div>
+        <p className="text-[13px] text-mm-muted">For a spreadsheet, use Export CSV on the Transactions page.</p>
+        <div className="pt-4 border-t border-mm-line/8">
+          <Row title="Delete all records" text="Removes every transaction, budget, goal, IOU, account and group. Settings stay.">
+            <Button variant="danger" icon={Trash2} onClick={() => setConfirmReset(true)}>Delete</Button>
+          </Row>
         </div>
-      </motion.div>
+      </Section>
 
-      <MoreSettings />
-
-      {/* Keyboard shortcuts */}
-      <div className="glass-card p-6 hidden md:block">
-        <h2 className="text-sm font-semibold text-mm-text mb-3">Keyboard shortcuts</h2>
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-2.5 text-sm">
-          {[
-            ['Search and commands', '⌘ K  /  Ctrl K'],
-            ['Add expense', 'N'],
-            ['Add income', 'I'],
-            ['Hide or show amounts', 'H'],
-            ['Quick search', '/'],
-          ].map(([label, keys]) => (
-            <div key={label} className="flex items-center justify-between border-b border-mm-line/8 pb-2">
-              <dt className="text-mm-text2">{label}</dt>
-              <dd><kbd className="text-xs text-mm-muted border border-mm-line/20 rounded px-2 py-0.5 font-sans">{keys}</kbd></dd>
+      <Section title="Shortcuts" description="On a computer.">
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5 text-sm">
+          {[['Search and commands', '⌘K or Ctrl K'], ['Add expense', 'N'], ['Add income', 'I'], ['Hide amounts', 'H'], ['Search', '/']].map(([l, k]) => (
+            <div key={l} className="flex items-center justify-between gap-3">
+              <dt className="text-mm-text2">{l}</dt>
+              <dd><kbd className="text-xs font-sans font-semibold text-mm-text2 bg-mm-bg2 rounded-md px-2 py-1">{k}</kbd></dd>
             </div>
           ))}
         </dl>
-      </div>
+      </Section>
 
-      {/* Backup & Export Data */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.12 }}
-        className="glass-card p-6 space-y-4 specular-sheen"
-      >
-        <div className="flex items-center gap-2 mb-1 text-mm-gold">
-          <Download size={17} />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-mm-text2">Backup & export</h2>
-        </div>
+      <p className="text-center text-[13px] text-mm-muted pt-4">MoneyMate 4.1</p>
 
-        <p className="text-xs text-mm-muted leading-relaxed">
-          Your personal finance ledger is completely client-side and saved locally in browser storage. You can export or restore a backup at any time.
-        </p>
+      <ConfirmDialog isOpen={confirmReset} onClose={() => setConfirmReset(false)} variant="danger" confirmText="Delete everything"
+        title="Delete all your records?" message={user ? 'This also deletes them from your account on every device. Download a backup first if you might want them back.' : 'Download a backup first if you might want them back. This can’t be undone.'}
+        onConfirm={resetData} />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          {/* Export button */}
-          <button
-            onClick={handleExportData}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-mm-text hover:text-mm-gold hover:border-mm-gold/40 text-xs font-medium transition-all shadow-sm active:scale-95"
-          >
-            <Download size={15} />
-            Export Ledger JSON
-          </button>
+      <ConfirmDialog isOpen={restore !== null} onClose={() => setRestore(null)} confirmText="Replace with backup"
+        title="Restore this backup?" message="Everything currently in MoneyMate is replaced by what’s in the file."
+        onConfirm={() => { if (restore && !importData(restore)) showToast('That file isn’t a MoneyMate backup', 'error'); setRestore(null); }} />
 
-          {/* Import button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-mm-text hover:text-mm-gold hover:border-mm-gold/40 text-xs font-medium transition-all shadow-sm active:scale-95"
-          >
-            <Upload size={15} />
-            Restore Backup
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportFile}
-            accept=".json"
-            className="hidden"
-          />
-        </div>
-      </motion.div>
-
-      {/* About MoneyMate Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.16 }}
-        className="glass-card-elevated p-8 text-center relative overflow-hidden specular-sheen"
-      >
-        <div className="flex justify-center mb-4">
-          <MoneyMateLogo size={52} showText={false} />
-        </div>
-        <h3 className="text-xl font-bold text-mm-text font-serif tracking-tight">MoneyMate Sovereign</h3>
-        <p className="text-xs text-mm-gold font-semibold uppercase tracking-widest mt-1">Private Wealth Management</p>
-        <p className="text-xs text-mm-text2 mt-2 max-w-md mx-auto leading-relaxed">
-          Crafted with an obsidian and champagne luxury aesthetic, tabular typography, and private wealth financial management.
-        </p>
-
-        <div className="mt-5 flex items-center justify-center gap-3">
-          <button
-            onClick={() => setShowTour(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 shadow-sm"
-          >
-            <Compass size={15} />
-            Launch Wealth Guide
-          </button>
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-mm-line/10 flex items-center justify-center gap-4 text-[11px] text-mm-muted">
-          <span>v2.2 Obsidian</span>
-          <span>•</span>
-          <span>Zero Server Telemetry</span>
-          <span>•</span>
-          <span>100% Client Sovereign</span>
-        </div>
-      </motion.div>
-
-
-
-      {/* Feature Guide Tour Modal */}
-      <OnboardingTourModal isOpen={showTour} onClose={() => setShowTour(false)} />
-
-      {/* Firebase Cloud Sync & Authentication Modal */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-    </div>
+      <Dialog open={!!enc} onClose={() => setEnc(null)} title={enc === 'on' ? 'Turn on encryption' : 'Turn off encryption'}
+        footer={<Button size="lg" className="w-full" loading={encBusy} onClick={submitEnc}>{enc === 'on' ? 'Encrypt my data' : 'Turn off encryption'}</Button>}>
+        <form className="space-y-3 pt-1" onSubmit={e => { e.preventDefault(); submitEnc(); }}>
+          {enc === 'on' && (
+            <div className="flex gap-2.5 p-3.5 rounded-xl bg-mm-warning/10 text-[13px] text-mm-text2 leading-relaxed">
+              <ShieldAlert size={17} className="text-mm-warning shrink-0" />
+              <span>Your passphrase never leaves this device and <b className="text-mm-text">can’t be reset</b>. If you lose it, your synced data can’t be recovered. Bill reminders also stop, because the server can no longer read your bills.</span>
+            </div>
+          )}
+          <Field label="Passphrase" htmlFor="e-p1"><Input id="e-p1" type="password" value={p1} onChange={e => setP1(e.target.value)} autoComplete={enc === 'on' ? 'new-password' : 'current-password'} data-autofocus /></Field>
+          {enc === 'on' && <Field label="Type it again" htmlFor="e-p2"><Input id="e-p2" type="password" value={p2} onChange={e => setP2(e.target.value)} autoComplete="new-password" /></Field>}
+          {enc === 'on' && <label className="flex items-start gap-2.5 text-sm text-mm-text2"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[var(--color-mm-accent)]" />I’ve saved my passphrase somewhere safe</label>}
+          {encErr && <p className="text-sm text-mm-negative" role="alert">{encErr}</p>}
+          <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
+        </form>
+      </Dialog>
+    </Page>
   );
 };
-

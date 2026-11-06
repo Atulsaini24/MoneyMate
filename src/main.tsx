@@ -1,12 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import '@fontsource-variable/figtree';
+import '@fontsource-variable/bricolage-grotesque';
 import App from './App';
 import './index.css';
+import { initMonitoring } from './lib/monitoring';
 
 const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error('Failed to find the root element');
-}
+if (!rootElement) throw new Error('Failed to find the root element');
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
@@ -14,7 +15,6 @@ ReactDOM.createRoot(rootElement).render(
   </React.StrictMode>
 );
 
-import { initMonitoring } from './lib/monitoring';
 initMonitoring();
 
 // Installable + offline shell. Production only, so dev hot-reload is never cached.

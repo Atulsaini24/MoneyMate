@@ -9,6 +9,8 @@ interface UIContextType {
   setPaletteOpen: (open: boolean) => void;
   scannerOpen: boolean;
   setScannerOpen: (open: boolean) => void;
+  voiceOpen: boolean;
+  setVoiceOpen: (open: boolean) => void;
   /** Month (YYYY-MM) whose recap story is open, or null */
   recap: string | null;
   openRecap: (month: string) => void;
@@ -29,6 +31,7 @@ export function UIProvider({ children, onTogglePrivacy }: { children: React.Reac
   });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [recap, setRecap] = useState<string | null>(null);
   const openRecap = useCallback((m: string) => setRecap(m), []);
   const closeRecap = useCallback(() => setRecap(null), []);
@@ -56,7 +59,8 @@ export function UIProvider({ children, onTogglePrivacy }: { children: React.Reac
         setPaletteOpen(o => !o);
         return;
       }
-      if (isTyping(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+      // Single-key shortcuts never fire while typing or while a dialog is open
+      if (isTyping(e) || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (e.key === 'n') { e.preventDefault(); openAddSheet({ type: 'expense' }); }
       else if (e.key === 'i') { e.preventDefault(); openAddSheet({ type: 'income' }); }
       else if (e.key === 'h') { e.preventDefault(); onTogglePrivacy(); }
@@ -67,8 +71,8 @@ export function UIProvider({ children, onTogglePrivacy }: { children: React.Reac
   }, [openAddSheet, onTogglePrivacy]);
 
   const value = useMemo(
-    () => ({ openAddSheet, paletteOpen, setPaletteOpen, scannerOpen, setScannerOpen, recap, openRecap, closeRecap }),
-    [openAddSheet, paletteOpen, scannerOpen, recap, openRecap, closeRecap]
+    () => ({ openAddSheet, paletteOpen, setPaletteOpen, scannerOpen, setScannerOpen, voiceOpen, setVoiceOpen, recap, openRecap, closeRecap }),
+    [openAddSheet, paletteOpen, scannerOpen, voiceOpen, recap, openRecap, closeRecap]
   );
 
   return (

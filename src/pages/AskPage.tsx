@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUp, RotateCcw, Sparkles, Loader2, Search } from 'lucide-react';
+import { ArrowUp, RotateCcw, Sparkles, Loader2, Search, LogIn } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui';
 import { useApp } from '@/context/AppContext';
 import { authedJson } from '@/lib/api';
 import { runTool, TOOL_LABELS } from '@/lib/askTools';
@@ -30,7 +32,7 @@ function Rich({ text }: { text: string }) {
         if (lines.every(l => /^\s*([-*•]|\d+\.)\s/.test(l))) {
           const ordered = /^\s*\d+\./.test(lines[0]);
           const L = ordered ? 'ol' : 'ul';
-          return <L key={i} className={`space-y-1 pl-5 ${ordered ? 'list-decimal' : 'list-disc'} marker:text-mm-gold`}>{lines.map((l, k) => <li key={k}>{inline(l.replace(/^\s*([-*•]|\d+\.)\s/, ''))}</li>)}</L>;
+          return <L key={i} className={`space-y-1 pl-5 ${ordered ? 'list-decimal' : 'list-disc'} marker:text-mm-accent`}>{lines.map((l, k) => <li key={k}>{inline(l.replace(/^\s*([-*•]|\d+\.)\s/, ''))}</li>)}</L>;
         }
         return <p key={i}>{lines.map((l, k) => <React.Fragment key={k}>{k > 0 && <br />}{inline(l.replace(/^#+\s*/, ''))}</React.Fragment>)}</p>;
       })}
@@ -39,15 +41,14 @@ function Rich({ text }: { text: string }) {
 }
 
 const Orb: React.FC<{ size?: number; busy?: boolean }> = ({ size = 32, busy }) => (
-  <span className="relative shrink-0 rounded-full" style={{ width: size, height: size }}>
-    <motion.span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, var(--color-mm-gold), var(--color-mm-positive), var(--color-mm-gold-light), var(--color-mm-gold))' }}
-      animate={{ rotate: 360 }} transition={{ duration: busy ? 1.6 : 8, repeat: Infinity, ease: 'linear' }} />
-    <span className="absolute inset-[2px] rounded-full bg-mm-bg flex items-center justify-center"><Sparkles size={size * 0.45} className="text-mm-gold" /></span>
+  <span className={`relative shrink-0 rounded-full bg-mm-note text-[var(--color-mm-marigold)] flex items-center justify-center ${busy ? 'animate-pulse' : ''}`} style={{ width: size, height: size }} aria-hidden>
+    <Sparkles size={size * 0.48} />
   </span>
 );
 
 export const AskPage: React.FC = () => {
   const app = useApp();
+  const { user, exitGuest, isConfigured } = useAuth();
   const [messages, setMessages] = useState<Msg[]>(() => { try { return JSON.parse(sessionStorage.getItem(STORE) || '[]'); } catch { return []; } });
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -86,7 +87,7 @@ export const AskPage: React.FC = () => {
         setMessages(convo);
       }
     } catch (e: any) {
-      setError(e?.message === 'Not signed in' ? 'Ask MoneyMate needs a signed-in account (it’s not available in demo mode).' : e?.message || 'Something went wrong.');
+      setError(e?.message === 'Not signed in' ? 'Ask MoneyMate needs an account, because questions are answered by an AI service on the server.' : e?.message || 'Something went wrong. Try again.');
     } finally {
       setBusy(false); setSteps([]);
     }
@@ -100,39 +101,44 @@ export const AskPage: React.FC = () => {
   });
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col pb-32 lg:pb-6">
-      <div className="flex-1 w-full max-w-3xl mx-auto px-4 md:px-6 pt-6">
+    <div className="flex flex-col min-h-[calc(100dvh-57px)] lg:min-h-[calc(100dvh-65px)]">
+      <div className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
         {visible.length === 0 ? (
-          <div className="pt-6 sm:pt-14 text-center">
-            <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 160, damping: 14 }} className="inline-block">
-              <Orb size={72} />
-            </motion.div>
-            <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="font-serif text-3xl sm:text-4xl text-mm-text mt-6 tracking-tight">
-              Ask anything about your money
-            </motion.h1>
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="text-sm text-mm-text2 mt-2 max-w-md mx-auto">
-              Answers come from your own transactions, budgets and goals. Every number is looked up, never guessed.
-            </motion.p>
-            <div className="grid sm:grid-cols-2 gap-2.5 mt-8 text-left">
-              {SUGGESTIONS.map((s, k) => (
-                <motion.button key={s} onClick={() => ask(s)} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 + k * 0.05 }}
-                  className="spotlight glass-subtle px-4 py-3 text-sm text-mm-text2 hover:text-mm-text hover:border-mm-gold/40 transition-colors text-left">
-                  {s}
-                </motion.button>
-              ))}
-            </div>
+          <div className="text-center pt-4 sm:pt-10">
+            <span className="inline-flex"><Orb size={60} /></span>
+            <h1 className="text-[1.75rem] sm:text-[2.25rem] leading-tight font-semibold text-mm-text mt-5">Ask about your money</h1>
+            <p className="text-[15px] text-mm-text2 mt-2 max-w-md mx-auto leading-relaxed">
+              Answers come from your own transactions, budgets and goals. Every figure is looked up, not guessed.
+            </p>
+            {!user ? (
+              <div className="panel p-5 mt-8 max-w-md mx-auto text-left">
+                <p className="text-[15px] font-semibold text-mm-text">Ask MoneyMate needs an account</p>
+                <p className="text-sm text-mm-text2 mt-1 leading-relaxed">
+                  {isConfigured
+                    ? 'Questions are answered by an AI service on the server, so it only works when you’re signed in. Your data on this device comes with you.'
+                    : 'Questions are answered by an AI service on the server. Accounts aren’t turned on for this installation, so it isn’t available here.'}
+                </p>
+                {isConfigured && <Button icon={LogIn} className="mt-4" onClick={exitGuest}>Sign in</Button>}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-8 text-left">
+                {SUGGESTIONS.map(q => (
+                  <button key={q} onClick={() => ask(q)} className="panel lift px-4 py-3.5 text-[15px] text-mm-text2 hover:text-mm-text hover:border-mm-accent/40 text-left">{q}</button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="space-y-5 pb-4">
+          <div className="space-y-6 pb-4">
             <div className="flex justify-end">
-              <button onClick={() => { setMessages([]); setError(''); }} className="flex items-center gap-1.5 text-xs text-mm-muted hover:text-mm-text"><RotateCcw size={13} /> New chat</button>
+              <Button variant="ghost" size="sm" icon={RotateCcw} onClick={() => { setMessages([]); setError(''); }}>New chat</Button>
             </div>
             <AnimatePresence initial={false}>
               {visible.map(m => (
-                <motion.div key={m.i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+                <motion.div key={m.i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
                   className={m.role === 'user' ? 'flex justify-end' : 'flex gap-3'}>
                   {m.role === 'user' ? (
-                    <p className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-mm-gold/15 border border-mm-gold/25 text-sm text-mm-text">{m.text}</p>
+                    <p className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-mm-accent text-mm-on-accent text-[15px]">{m.text}</p>
                   ) : (
                     <>
                       <Orb />
@@ -143,38 +149,42 @@ export const AskPage: React.FC = () => {
               ))}
             </AnimatePresence>
             {busy && (
-              <div className="flex gap-3">
+              <div className="flex gap-3" role="status">
                 <Orb busy />
                 <div className="pt-1.5 space-y-1.5">
-                  {steps.length === 0 && <p className="text-sm text-mm-muted flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Thinking…</p>}
-                  {steps.map((s, k) => (
-                    <motion.p key={k} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} className="text-sm text-mm-muted flex items-center gap-2">
-                      {k === steps.length - 1 ? <Loader2 size={14} className="animate-spin text-mm-gold" /> : <Search size={14} className="text-mm-positive" />} {s}…
-                    </motion.p>
+                  {steps.length === 0 && <p className="text-sm text-mm-muted flex items-center gap-2"><Loader2 size={15} className="animate-spin" /> Thinking…</p>}
+                  {steps.map((st, k) => (
+                    <p key={k} className="text-sm text-mm-muted flex items-center gap-2">
+                      {k === steps.length - 1 ? <Loader2 size={15} className="animate-spin text-mm-accent" /> : <Search size={15} className="text-mm-positive" />} {st}…
+                    </p>
                   ))}
                 </div>
               </div>
             )}
-            {error && <p role="alert" className="text-sm text-mm-negative bg-mm-negative/10 rounded-xl p-3">{error}</p>}
             <div ref={endRef} />
           </div>
         )}
+        {error && (
+          <div role="alert" className="mt-4 text-sm text-mm-negative bg-mm-negative/10 rounded-xl p-3.5 max-w-3xl mx-auto">{error}</div>
+        )}
       </div>
 
-      <form onSubmit={e => { e.preventDefault(); ask(input); }}
-        className="sticky bottom-24 lg:bottom-4 z-20 w-full max-w-3xl mx-auto px-4 md:px-6 mt-4">
-        <div className="glass-card-elevated liquid-dock flex items-end gap-2 p-2 pl-4 focus-within:border-mm-gold/50">
-          <textarea value={input} onChange={e => setInput(e.target.value)} rows={1} aria-label="Ask a question"
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(input); } }}
-            placeholder="Ask about your spending, budgets or goals…"
-            className="flex-1 resize-none bg-transparent py-2.5 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus-visible:outline-none max-h-40" />
-          <button type="submit" disabled={!input.trim() || busy} aria-label="Send"
-            className="w-10 h-10 rounded-xl bg-mm-gold text-mm-on-gold flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all shrink-0">
-            {busy ? <Loader2 size={17} className="animate-spin" /> : <ArrowUp size={18} strokeWidth={2.4} />}
-          </button>
-        </div>
-        <p className="text-[11px] text-mm-muted text-center mt-2">Answers can be wrong. Check important numbers before acting on them.</p>
-      </form>
+      {user && (
+        <form onSubmit={e => { e.preventDefault(); ask(input); }}
+          className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] lg:bottom-4 z-20 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-3 bg-gradient-to-t from-mm-bg via-mm-bg to-transparent">
+          <div className="flex items-end gap-2 p-1.5 pl-4 rounded-2xl bg-mm-card border border-mm-line/15 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.2)] focus-within:border-mm-accent focus-within:ring-4 focus-within:ring-mm-accent/15 transition">
+            <textarea value={input} onChange={e => setInput(e.target.value)} rows={1} aria-label="Ask a question"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(input); } }}
+              placeholder="Ask about spending, budgets or goals"
+              className="flex-1 resize-none bg-transparent py-2.5 text-mm-text placeholder:text-mm-muted focus:outline-none focus-visible:outline-none max-h-40" />
+            <button type="submit" disabled={!input.trim() || busy} aria-label="Send"
+              className="w-10 h-10 rounded-xl bg-mm-accent text-mm-on-accent flex items-center justify-center disabled:opacity-40 active:scale-95 transition shrink-0">
+              {busy ? <Loader2 size={18} className="animate-spin" /> : <ArrowUp size={19} strokeWidth={2.4} />}
+            </button>
+          </div>
+          <p className="text-xs text-mm-muted text-center mt-2">Answers can be wrong. Check important figures before acting on them.</p>
+        </form>
+      )}
     </div>
   );
 };

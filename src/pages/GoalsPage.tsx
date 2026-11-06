@@ -1,477 +1,213 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit3, Trash2, Target, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Plus, Target, Pencil, CalendarDays, CircleCheck, Trash2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { SavingsGoal } from '@/types';
-import { formatCurrency } from '@/lib/utils';
-import { LandscapeHero } from '@/components/shared/LandscapeHero';
-import { Modal } from '@/components/shared/Modal';
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { EmptyState } from '@/components/shared/EmptyState';
+import type { SavingsGoal } from '@/types';
+import { formatCurrency, cn } from '@/lib/utils';
+import { GOAL_COLORS, GOAL_ICONS, goalLook, monthlyNeeded } from '@/lib/goals';
+import { CategoryIcon, ICONS } from '@/components/shared/CategoryIcon';
+import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
+import { MoneyCanvas } from '@/components/three/MoneyCanvas';
+import { TiltCard } from '@/components/motion';
+import { Photo } from '@/components/shared/Photo';
+import { goalPhoto } from '@/lib/photos';
+import { Badge, Button, Chip, EmptyState, Field, IconButton, Input, MoneyInput, Page, PageHeader, Progress, Segmented, Textarea } from '@/components/ui';
 
-const GOAL_IMAGE_PRESETS = [
-  { id: 'iphone', name: 'New iPhone', image: '/assets/moneymate/goals/iphone.jpg' },
-  { id: 'europe-trip', name: 'Europe Trip', image: '/assets/moneymate/goals/europe-trip.jpg' },
-  { id: 'emergency-fund', name: 'Emergency Fund', image: '/assets/moneymate/goals/emergency-fund.jpg' },
-  { id: 'new-car', name: 'New Car', image: '/assets/moneymate/goals/new-car.jpg' },
-  { id: 'dream-house', name: 'Dream House', image: '/assets/moneymate/goals/dream-house.jpg' },
-  { id: 'education', name: 'Education', image: '/assets/moneymate/goals/education.jpg' },
-  { id: 'bike', name: 'Bike', image: '/assets/moneymate/goals/bike.jpg' },
-  { id: 'laptop', name: 'Laptop', image: '/assets/moneymate/goals/laptop.jpg' },
-  { id: 'camera', name: 'Camera', image: '/assets/moneymate/goals/camera.jpg' },
-  { id: 'gaming-setup', name: 'Gaming Setup', image: '/assets/moneymate/goals/gaming-setup.jpg' },
-  { id: 'travel-world', name: 'Travel World', image: '/assets/moneymate/goals/travel-world.jpg' },
-  { id: 'custom-goal', name: 'Custom Goal', image: '/assets/moneymate/goals/custom-goal.jpg' },
-];
-
-const goalImgMap: Record<string, string> = {
-  'New iPhone': '/assets/moneymate/goals/iphone.jpg',
-  'Europe Trip': '/assets/moneymate/goals/europe-trip.jpg',
-  'Emergency Fund': '/assets/moneymate/goals/emergency-fund.jpg',
-  'New Car': '/assets/moneymate/goals/new-car.jpg',
-  'Dream House': '/assets/moneymate/goals/dream-house.jpg',
-  'Education': '/assets/moneymate/goals/education.jpg',
-  'Bike': '/assets/moneymate/goals/bike.jpg',
-  'Laptop': '/assets/moneymate/goals/laptop.jpg',
-  'Camera': '/assets/moneymate/goals/camera.jpg',
-  'Gaming Setup': '/assets/moneymate/goals/gaming-setup.jpg',
-  'Travel World': '/assets/moneymate/goals/travel-world.jpg',
-  'Custom Goal': '/assets/moneymate/goals/custom-goal.jpg',
-};
+type Form = { id?: string; name: string; target: string; saved: string; date: string; term: SavingsGoal['category']; icon: string; color: string; notes: string };
+const blank = (): Form => ({ name: '', target: '', saved: '', date: '', term: 'short-term', icon: 'PiggyBank', color: GOAL_COLORS[0], notes: '' });
 
 export const GoalsPage: React.FC = () => {
-  const { goals, addGoal, updateGoal, deleteGoal, addMoneyToGoal } = useApp();
-  const [filter, setFilter] = useState<'all' | 'short-term' | 'long-term'>('all');
-  const [showCreate, setShowCreate] = useState(false);
-  const [editGoal, setEditGoal] = useState<SavingsGoal | null>(null);
-  const [deleteGoalId, setDeleteGoalId] = useState<string | null>(null);
-  const [addMoneyGoalId, setAddMoneyGoalId] = useState<string | null>(null);
-  const [addMoneyAmount, setAddMoneyAmount] = useState('');
-  const [showCelebration, setShowCelebration] = useState(false);
+  const { goals, addGoal, updateGoal, deleteGoal, addMoneyToGoal, showToast, mutate } = useApp();
+  const [filter, setFilter] = useState<'all' | SavingsGoal['category']>('all');
+  const [form, setForm] = useState<Form | null>(null);
+  const [money, setMoney] = useState<{ goal: SavingsGoal; mode: 'add' | 'withdraw'; amount: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<SavingsGoal | null>(null);
 
-  // Form
-  const [formName, setFormName] = useState('');
-  const [formTarget, setFormTarget] = useState('');
-  const [formSaved, setFormSaved] = useState('0');
-  const [formDate, setFormDate] = useState('');
-  const [formCategory, setFormCategory] = useState<'short-term' | 'long-term'>('short-term');
-  const [formImage, setFormImage] = useState<string>('/assets/moneymate/goals/iphone.jpg');
-  const [formNotes, setFormNotes] = useState('');
+  const shown = goals.filter(g => filter === 'all' || g.category === filter)
+    .sort((a, b) => Number(a.savedAmount >= a.targetAmount) - Number(b.savedAmount >= b.targetAmount));
+  const saved = goals.reduce((s, g) => s + g.savedAmount, 0);
+  const target = goals.reduce((s, g) => s + g.targetAmount, 0);
 
-  const filtered = goals.filter(g => filter === 'all' || g.category === filter);
-  const totalSaved = goals.reduce((s, g) => s + g.savedAmount, 0);
-  const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
-  const overallProgress = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : 0;
-
-  const resetForm = () => {
-    setFormName(''); setFormTarget(''); setFormSaved('0');
-    setFormDate(''); setFormCategory('short-term'); setFormNotes('');
-    setFormImage('/assets/moneymate/goals/iphone.jpg');
+  const openEdit = (g: SavingsGoal) => {
+    const look = goalLook(g);
+    setForm({ id: g.id, name: g.name, target: String(g.targetAmount), saved: String(g.savedAmount), date: g.targetDate?.slice(0, 10) || '', term: g.category, icon: look.icon, color: look.color, notes: g.notes || '' });
+  };
+  const t = parseFloat(form?.target || '');
+  const canSave = Boolean(form?.name.trim()) && Number.isFinite(t) && t > 0;
+  const save = () => {
+    if (!form || !canSave) return;
+    const data = { name: form.name.trim(), targetAmount: t, savedAmount: Math.max(0, parseFloat(form.saved) || 0), targetDate: form.date || undefined, category: form.term, icon: form.icon, color: form.color, notes: form.notes.trim(), image: undefined };
+    if (form.id) updateGoal(form.id, data); else addGoal(data);
+    setForm(null);
   };
 
-  const handleOpenEdit = (goal: SavingsGoal) => {
-    setEditGoal(goal);
-    setFormName(goal.name);
-    setFormTarget(goal.targetAmount.toString());
-    setFormSaved(goal.savedAmount.toString());
-    setFormDate(goal.targetDate || '');
-    setFormCategory(goal.category);
-    setFormImage(goal.image || goalImgMap[goal.name] || '/assets/moneymate/goals/custom-goal.jpg');
-    setFormNotes(goal.notes || '');
-    setShowCreate(true);
-  };
-
-  const handleSave = () => {
-    if (!formName.trim() || !formTarget || parseFloat(formTarget) <= 0) return;
-    const data = {
-      name: formName.trim(),
-      targetAmount: parseFloat(formTarget),
-      savedAmount: parseFloat(formSaved) || 0,
-      targetDate: formDate || undefined,
-      category: formCategory,
-      image: formImage,
-      notes: formNotes,
-    };
-
-    if (editGoal) {
-      updateGoal(editGoal.id, data);
-      setEditGoal(null);
-    } else {
-      addGoal(data);
+  const amt = parseFloat(money?.amount || '');
+  const applyMoney = () => {
+    if (!money || !(amt > 0)) return;
+    if (money.mode === 'add') addMoneyToGoal(money.goal.id, amt);
+    else {
+      const take = Math.min(amt, money.goal.savedAmount);
+      const id = money.goal.id;
+      mutate(st => ({ ...st, goals: st.goals.map(x => (x.id === id ? { ...x, savedAmount: Math.max(0, x.savedAmount - take) } : x)) }));
+      showToast(`Took ${formatCurrency(take)} out of ${money.goal.name}`, 'info');
     }
-
-    resetForm();
-    setShowCreate(false);
-  };
-
-  const handleAddMoney = () => {
-    if (!addMoneyGoalId || !addMoneyAmount) return;
-    const amt = parseFloat(addMoneyAmount);
-    if (amt > 0) {
-      addMoneyToGoal(addMoneyGoalId, amt);
-      const targetGoal = goals.find(g => g.id === addMoneyGoalId);
-      if (targetGoal && (targetGoal.savedAmount + amt >= targetGoal.targetAmount)) {
-        setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 3000);
-      }
-      setAddMoneyAmount('');
-      setAddMoneyGoalId(null);
-    }
+    setMoney(null);
   };
 
   return (
-    <div className="min-h-screen pb-32 lg:pb-8">
-      <div className="px-4 md:px-6 pt-4 space-y-4">
-        {/* Landscape hero */}
-        <LandscapeHero quote="Set goals, reach milestones, build your future." />
+    <Page>
+      <PageHeader title="Goals" subtitle="Put money aside for the things that matter and see how close you are."
+        actions={<Button icon={Plus} onClick={() => setForm(blank())}>New goal</Button>} />
 
-        {/* Header with Add Goal Button */}
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-mm-text tracking-tight">Savings & Capital Goals</h1>
-            <p className="text-xs text-mm-muted mt-0.5">Track your asset acquisition targets and wealth milestones</p>
-          </div>
-          <button
-            onClick={() => { resetForm(); setEditGoal(null); setShowCreate(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-semibold text-xs tracking-wider uppercase transition-all shadow-sm active:scale-95 flex-shrink-0"
-          >
-            <Plus size={15} strokeWidth={2.5} />
-            <span className="hidden sm:inline">Create Goal</span>
-            <span className="sm:hidden">Goal</span>
-          </button>
+      {goals.length === 0 ? (
+        <div className="panel">
+          <EmptyState icon={Target} title="No goals yet" description="An emergency fund is a good first one. Three months of expenses gives you room to breathe."
+            action={<Button icon={Plus} onClick={() => setForm({ ...blank(), name: 'Emergency fund', icon: 'ShieldCheck', term: 'long-term' })}>Create a goal</Button>} />
         </div>
-
-        {/* Total overview */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card-elevated p-4 sm:p-5 mb-5 specular-sheen"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-xs text-mm-muted uppercase tracking-wider font-semibold mb-1">Total Capital Accumulated</p>
-              <p className="text-xl sm:text-2xl font-medium text-mm-gold number-display">{formatCurrency(totalSaved)}</p>
+      ) : (
+        <>
+          <section className="panel p-5 sm:p-6 mb-5 relative overflow-hidden">
+            <MoneyCanvas mode="stack" value={target ? saved / target : 0} maxCoins={10} label={`Coin stack: ${target ? Math.round((saved / target) * 100) : 0}% of all goals saved`}
+              className="absolute right-2 top-2 bottom-2 w-24 sm:w-40" />
+            <div className="relative flex flex-wrap items-end justify-between gap-3 pr-24 sm:pr-40">
+              <div>
+                <p className="text-[13px] text-mm-muted">Saved across {goals.length} goal{goals.length === 1 ? '' : 's'}</p>
+                <p className="amount text-[2rem] font-semibold text-mm-text leading-tight">{formatCurrency(saved)}</p>
+              </div>
+              <p className="text-sm text-mm-text2 tabular">of {formatCurrency(target)} · {target ? Math.round((saved / target) * 100) : 0}%</p>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-mm-muted uppercase tracking-wider font-semibold mb-1">Target Total</p>
-              <p className="text-base sm:text-lg font-medium text-mm-text2 number-display">{formatCurrency(totalTarget)}</p>
-            </div>
-          </div>
-          <div className="progress-bar h-2">
-            <motion.div
-              className="progress-bar-fill bg-mm-gold"
-              initial={{ width: 0 }}
-              animate={{ width: `${overallProgress}%` }}
-              transition={{ duration: 0.8 }}
-            />
-          </div>
-          <p className="text-xs text-mm-muted mt-2 font-medium number-display">{overallProgress}% of aggregate target reached</p>
-        </motion.div>
+            <Progress value={target ? (saved / target) * 100 : 0} className="relative mt-4 h-2.5 mr-24 sm:mr-40" label="All goals progress" />
+          </section>
 
-        {/* Filter tabs */}
-        <div className="-mx-4 px-4 flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-none">
-          {(['all', 'short-term', 'long-term'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
-                filter === f
-                  ? 'bg-mm-gold/15 text-mm-gold border border-mm-gold/35 shadow-sm'
-                  : 'bg-mm-bg2 text-mm-muted hover:text-mm-text border border-mm-line/10'
-              }`}
-            >
-              {f === 'all' ? 'All Goals' : f === 'short-term' ? 'Short Term' : 'Long Term'}
-            </button>
-          ))}
-        </div>
+          <Segmented label="Filter goals" value={filter} onChange={setFilter} className="mb-4"
+            options={[{ value: 'all', label: 'All' }, { value: 'short-term', label: 'Short term' }, { value: 'long-term', label: 'Long term' }]} />
 
-        {/* Goal Cards */}
-        {filtered.length === 0 ? (
-          <EmptyState
-            image="/assets/moneymate/empty/empty-goals-icon.jpg"
-            title="No savings goals yet"
-            description="Set a savings goal to achieve your dreams and track milestone progress."
-            actionText="Create Your First Goal"
-            onAction={() => { resetForm(); setEditGoal(null); setShowCreate(true); }}
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.map((goal, i) => {
-              const progress = Math.round((goal.savedAmount / goal.targetAmount) * 100);
-              const isComplete = goal.savedAmount >= goal.targetAmount;
-              const imageSrc = goal.image || goalImgMap[goal.name];
-
-              return (
-                <motion.div
-                  key={goal.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04, duration: 0.2 }}
-                  className={`glass-card p-5 hover:border-mm-line/25 transition-all group relative overflow-hidden specular-sheen ${isComplete ? 'ring-1 ring-mm-gold/40' : ''}`}
-                >
-                  {isComplete && (
-                    <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-mm-positive/15 text-[10px] font-semibold text-mm-positive border border-mm-positive/30">
-                      ✓ Achieved
-                    </div>
-                  )}
-                  <div className="flex gap-4">
-                    {/* Goal Real Image Thumbnail */}
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden border border-mm-line/20 shadow-md flex-shrink-0 bg-mm-bg group-hover:scale-105 transition-transform">
-                      {imageSrc ? (
-                        <img src={imageSrc} alt={goal.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-mm-bg2 flex items-center justify-center text-xl text-mm-gold">
-                          🎯
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-base font-medium text-mm-text truncate">{goal.name}</h4>
-                      <p className="text-sm text-mm-text2 number-display mt-0.5">
-                        {formatCurrency(goal.targetAmount)}
-                      </p>
-                      {goal.targetDate && (
-                        <p className="text-[10px] text-mm-muted mt-0.5">
-                          Target: {new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-mm-muted number-display">{formatCurrency(goal.savedAmount)} saved</span>
-                      <span className="text-xs font-semibold text-mm-gold number-display">{progress}%</span>
-                    </div>
-                    <div className="progress-bar h-1.5">
-                      <motion.div
-                        className={`progress-bar-fill ${isComplete ? 'bg-mm-positive' : 'bg-mm-gold'}`}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(progress, 100)}%` }}
-                        transition={{ duration: 0.7, delay: 0.05 + i * 0.03 }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2">
-                    <button
-                      onClick={() => { setAddMoneyGoalId(goal.id); setAddMoneyAmount(''); }}
-                      className="flex-1 py-2 rounded-xl bg-mm-gold/15 border border-mm-gold/25 text-mm-gold text-xs font-semibold hover:bg-mm-gold/25 transition-all shadow-sm"
-                    >
-                      + Deposit Capital
-                    </button>
-                    <button
-                      onClick={() => handleOpenEdit(goal)}
-                      className="p-2 rounded-xl hover:bg-mm-text/5 text-mm-muted hover:text-mm-text transition-colors"
-                      title="Edit Goal"
-                    >
-                      <Edit3 size={15} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteGoalId(goal.id)}
-                      className="p-2 rounded-xl hover:bg-mm-text/5 text-mm-muted hover:text-mm-negative transition-colors"
-                      title="Delete Goal"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Create / Edit Goal Modal */}
-      <Modal
-        isOpen={showCreate}
-        onClose={() => { setShowCreate(false); setEditGoal(null); }}
-        title={editGoal ? 'Edit Goal' : 'Create Savings Goal'}
-        footer={
-          <button
-            onClick={handleSave}
-            disabled={!formName.trim() || !formTarget}
-            className="w-full py-3.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-bold text-xs uppercase tracking-wider disabled:opacity-40 transition-all shadow-md active:scale-[0.98] cursor-pointer"
-          >
-            {editGoal ? 'Update Goal' : 'Confirm Goal Creation'}
-          </button>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Goal Name</label>
-            <input
-              type="text"
-              placeholder="e.g., New iPhone, Dream Vacation"
-              value={formName}
-              onChange={e => setFormName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50"
-            />
-          </div>
-
-          {/* Goal Artwork Preset Selector */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-mm-text2 font-medium flex items-center gap-1.5">
-                <ImageIcon size={14} className="text-mm-gold" />
-                <span>Select Goal Artwork</span>
-              </label>
-              <span className="text-[10px] text-mm-muted font-mono">
-                {GOAL_IMAGE_PRESETS.find(p => p.image === formImage)?.name || 'Custom'}
-              </span>
-            </div>
-            <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 scrollbar-none -mx-1 px-1">
-              {GOAL_IMAGE_PRESETS.map(preset => {
-                const isSelected = formImage === preset.image;
+          {shown.length === 0 ? (
+            <div className="panel"><EmptyState compact icon={Target} title="No goals in this group" /></div>
+          ) : (
+            <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+              {shown.map(g => {
+                const look = goalLook(g);
+                const pct = g.targetAmount > 0 ? (g.savedAmount / g.targetAmount) * 100 : 0;
+                const done = g.savedAmount >= g.targetAmount;
+                const need = monthlyNeeded(g);
+                const overdue = g.targetDate && !done && new Date(g.targetDate) < new Date();
                 return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => {
-                      setFormImage(preset.image);
-                      if (!formName) setFormName(preset.name);
-                    }}
-                    className={`relative rounded-xl overflow-hidden w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 border-2 transition-all group ${
-                      isSelected
-                        ? 'border-mm-gold ring-2 ring-mm-gold/40 shadow-lg scale-95'
-                        : 'border-mm-line/14 opacity-70 hover:opacity-100 hover:border-mm-line/30'
-                    }`}
-                    title={preset.name}
-                  >
-                    <img src={preset.image} alt={preset.name} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-1">
-                      <span className="text-[9px] text-mm-text font-medium truncate w-full text-center">
-                        {preset.name}
-                      </span>
-                    </div>
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-mm-gold text-mm-on-gold flex items-center justify-center text-[10px] font-bold shadow">
-                        ✓
+                  <li key={g.id}><TiltCard max={5} className="h-full rounded-[20px]"><div className="panel overflow-hidden flex flex-col h-full">
+                    <Photo src={goalPhoto(g.name, look.icon)} alt="" color={look.color} icon={look.icon} className="h-40 sm:h-44 shrink-0">
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgb(0_0_0/0.05)_30%,rgb(0_0_0/0.62))]" />
+                      <div className="absolute inset-x-0 bottom-0 p-4 flex items-end gap-3 text-white">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-[19px] font-semibold truncate drop-shadow">{g.name}</h3>
+                          <p className="text-[13px] text-white/80 flex items-center gap-1.5 mt-0.5">
+                            {g.targetDate ? <><CalendarDays size={13} />{new Date(g.targetDate).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</> : g.category === 'long-term' ? 'Long term' : 'Short term'}
+                          </p>
+                        </div>
+                        <span className="px-2.5 h-7 rounded-full bg-white/18 backdrop-blur-md ring-1 ring-white/25 text-[13px] font-bold tabular flex items-center">{Math.min(100, Math.round(pct))}%</span>
                       </div>
-                    )}
-                  </button>
+                      <button onClick={() => openEdit(g)} aria-label={`Edit ${g.name}`} title={`Edit ${g.name}`}
+                        className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/25 backdrop-blur-md ring-1 ring-white/25 text-white flex items-center justify-center hover:bg-black/40 transition-colors">
+                        <Pencil size={15} />
+                      </button>
+                    </Photo>
+                    <div className="p-5 pt-4 flex flex-col flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="amount text-2xl font-semibold text-mm-text">{formatCurrency(g.savedAmount)}</span>
+                      <span className="text-[13px] text-mm-muted tabular">of {formatCurrency(g.targetAmount)}</span>
+                    </div>
+                    <Progress value={pct} tone={done ? 'positive' : 'accent'} className="mt-2.5" label={`${g.name} progress`} />
+                    <div className="mt-2.5 min-h-[20px] text-[13px]">
+                      {done ? <Badge tone="positive"><CircleCheck size={13} /> Reached</Badge>
+                        : overdue ? <span className="text-mm-warning">Target date passed · {formatCurrency(g.targetAmount - g.savedAmount)} to go</span>
+                        : need ? <span className="text-mm-text2">Save <b className="text-mm-text tabular">{formatCurrency(need)}</b> a month to get there</span>
+                        : <span className="text-mm-text2">{formatCurrency(g.targetAmount - g.savedAmount)} to go</span>}
+                    </div>
+                    <div className="mt-auto pt-4"><div className="flex gap-2 pt-4 border-t border-mm-line/8">
+                      <Button size="sm" className="flex-1" icon={Plus} onClick={() => setMoney({ goal: g, mode: 'add', amount: '' })} disabled={done}>Add money</Button>
+                      <Button size="sm" variant="secondary" onClick={() => setMoney({ goal: g, mode: 'withdraw', amount: '' })} disabled={g.savedAmount <= 0}>Withdraw</Button>
+                    </div></div>
+                    </div>
+                  </div></TiltCard></li>
                 );
               })}
-            </div>
-          </div>
+            </ul>
+          )}
+        </>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <Dialog open={!!form} onClose={() => setForm(null)} title={form?.id ? 'Edit goal' : 'New goal'} size="lg"
+        footer={
+          <div className="flex gap-2">
+            {form?.id && <IconButton label="Delete goal" icon={Trash2} tone="danger" onClick={() => { const g = goals.find(x => x.id === form.id); if (g) setConfirmDelete(g); }} />}
+            <Button size="lg" className="flex-1" onClick={save} disabled={!canSave}>{form?.id ? 'Save changes' : 'Create goal'}</Button>
+          </div>
+        }>
+        {form && (
+          <form className="space-y-5 pt-1" onSubmit={e => { e.preventDefault(); save(); }}>
+            <Field label="Name" htmlFor="g-name">
+              <Input id="g-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Goa trip, new laptop" data-autofocus />
+            </Field>
             <div>
-              <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Target Amount (₹)</label>
-              <input
-                type="number"
-                placeholder="40000"
-                value={formTarget}
-                onChange={e => setFormTarget(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 number-display"
-              />
+              <p className="text-[13px] font-medium text-mm-text2 mb-2">Icon</p>
+              <div className="grid grid-cols-8 gap-1.5" role="radiogroup" aria-label="Icon">
+                {GOAL_ICONS.map(o => {
+                  const I = ICONS[o.icon]; const on = form.icon === o.icon;
+                  return (
+                    <button key={o.icon} type="button" role="radio" aria-checked={on} aria-label={o.label} title={o.label}
+                      onClick={() => setForm({ ...form, icon: o.icon, name: form.name || (o.icon === 'ShieldCheck' ? 'Emergency fund' : '') })}
+                      className={cn('aspect-square rounded-xl flex items-center justify-center border transition-colors', on ? 'border-transparent' : 'border-mm-line/10 text-mm-text2 hover:border-mm-line/25')}
+                      style={on ? { background: `color-mix(in oklab, ${form.color} 16%, transparent)`, color: `color-mix(in oklab, ${form.color} 80%, var(--color-mm-text))`, boxShadow: `inset 0 0 0 2px ${form.color}` } : undefined}>
+                      <I size={18} />
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2 mt-3" role="radiogroup" aria-label="Colour">
+                {GOAL_COLORS.map(c => (
+                  <button key={c} type="button" role="radio" aria-checked={form.color === c} aria-label={`Colour ${c}`} onClick={() => setForm({ ...form, color: c })}
+                    className={cn('w-7 h-7 rounded-full transition-transform', form.color === c && 'ring-2 ring-offset-2 ring-offset-mm-elevated scale-110')}
+                    style={{ background: c, ['--tw-ring-color' as string]: c }} />
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Already Saved (₹)</label>
-              <input
-                type="number"
-                placeholder="0"
-                value={formSaved}
-                onChange={e => setFormSaved(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 number-display"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Target" htmlFor="g-target"><MoneyInput id="g-target" value={form.target} onChange={e => setForm({ ...form, target: e.target.value })} placeholder="0" /></Field>
+              <Field label="Saved so far" htmlFor="g-saved"><MoneyInput id="g-saved" value={form.saved} onChange={e => setForm({ ...form, saved: e.target.value })} placeholder="0" /></Field>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Target Date</label>
-              <input
-                type="date"
-                value={formDate}
-                onChange={e => setFormDate(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark] cursor-pointer"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Target date (optional)" htmlFor="g-date"><Input id="g-date" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></Field>
+              <Field label="Timeframe">
+                <Segmented label="Timeframe" value={form.term} onChange={v => setForm({ ...form, term: v })} className="w-full h-11"
+                  options={[{ value: 'short-term', label: 'Short' }, { value: 'long-term', label: 'Long' }]} />
+              </Field>
             </div>
-            <div>
-              <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Category</label>
-              <select
-                value={formCategory}
-                onChange={e => setFormCategory(e.target.value as any)}
-                className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark] cursor-pointer"
-              >
-                <option value="short-term">Short Term</option>
-                <option value="long-term">Long Term</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Notes (optional)</label>
-            <textarea
-              placeholder="Add strategic notes or allocation plans..."
-              value={formNotes}
-              onChange={e => setFormNotes(e.target.value)}
-              rows={2}
-              className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 resize-none"
-            />
-          </div>
-        </div>
-      </Modal>
-
-      {/* Add Money Modal */}
-      <Modal isOpen={!!addMoneyGoalId} onClose={() => setAddMoneyGoalId(null)} title="Deposit Capital to Goal" size="sm">
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs text-mm-text2 font-medium mb-2 block">Deposit Amount (₹)</label>
-            <input
-              type="number"
-              placeholder="Enter amount"
-              value={addMoneyAmount}
-              onChange={e => setAddMoneyAmount(e.target.value)}
-              autoFocus
-              className="w-full px-4 py-3 rounded-xl bg-mm-bg2 border border-mm-line/16 text-lg text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 number-display"
-            />
-          </div>
-          <button
-            onClick={handleAddMoney}
-            disabled={!addMoneyAmount || parseFloat(addMoneyAmount) <= 0}
-            className="w-full py-3 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-semibold text-xs uppercase tracking-wider disabled:opacity-40 transition-all shadow-sm active:scale-[0.98]"
-          >
-            Confirm Deposit
-          </button>
-        </div>
-      </Modal>
-
-      <ConfirmDialog
-        isOpen={!!deleteGoalId}
-        onClose={() => setDeleteGoalId(null)}
-        onConfirm={() => deleteGoalId && deleteGoal(deleteGoalId)}
-        title="Delete Goal"
-        message="Are you sure you want to delete this savings goal? Stored progress will be removed."
-        confirmText="Delete"
-        variant="danger"
-      />
-
-      {/* Celebration overlay */}
-      <AnimatePresence>
-        {showCelebration && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="glass-card-elevated p-8 text-center border border-mm-gold/40 shadow-2xl bg-mm-elevated"
-            >
-              <Sparkles size={48} className="text-mm-gold mx-auto mb-3" />
-              <h2 className="text-xl font-bold text-mm-text font-serif">🎉 Goal Achieved!</h2>
-              <p className="text-mm-text2 mt-1 text-xs">Congratulations on reaching your wealth target!</p>
-            </motion.div>
-          </motion.div>
+            <Field label="Note (optional)" htmlFor="g-notes"><Textarea id="g-notes" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
+            <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
+          </form>
         )}
-      </AnimatePresence>
-    </div>
+      </Dialog>
+
+      <Dialog open={!!money} onClose={() => setMoney(null)} size="sm"
+        title={money?.mode === 'withdraw' ? `Take money out of ${money?.goal.name}` : `Add to ${money?.goal.name}`}
+        description={money ? `${formatCurrency(money.goal.savedAmount)} saved of ${formatCurrency(money.goal.targetAmount)}` : undefined}
+        footer={<Button size="lg" className="w-full" onClick={applyMoney} disabled={!(amt > 0)}>{money?.mode === 'withdraw' ? 'Withdraw' : 'Add'}{amt > 0 ? ` ${formatCurrency(amt)}` : ''}</Button>}>
+        {money && (
+          <form onSubmit={e => { e.preventDefault(); applyMoney(); }} className="pt-1">
+            <MoneyInput large value={money.amount} onChange={e => setMoney({ ...money, amount: e.target.value })} placeholder="0" aria-label="Amount" data-autofocus />
+            {money.mode === 'add' && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {[500, 1000, 5000].filter(v => v < money.goal.targetAmount - money.goal.savedAmount).map(v => (
+                  <Chip key={v} onClick={() => setMoney({ ...money, amount: String(v) })}>{formatCurrency(v, { reveal: true })}</Chip>
+                ))}
+                <Chip onClick={() => setMoney({ ...money, amount: String(Math.max(0, money.goal.targetAmount - money.goal.savedAmount)) })}>Everything left</Chip>
+              </div>
+            )}
+          </form>
+        )}
+      </Dialog>
+
+      <ConfirmDialog isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} variant="danger" confirmText="Delete goal"
+        title={`Delete “${confirmDelete?.name}”?`} message="The amount you’ve recorded as saved for it is removed too. This can’t be undone."
+        onConfirm={() => { if (confirmDelete) { deleteGoal(confirmDelete.id); setForm(null); } }} />
+    </Page>
   );
 };
-

@@ -1,110 +1,51 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { formatCurrency } from '@/lib/utils';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { ChartPie } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { categoryInfo } from '@/types';
+import { EmptyState, LinkButton, SectionTitle } from '@/components/ui';
 
-interface SpendingDonutChartProps {
-  data: { name: string; value: number }[];
-  total: number;
-}
-
-// Quiet Luxury Chart Palette: Restrained Gold & Muted Editorial Neutrals
-const LUXURY_SERIES_COLORS = [
-  '#D6BC86', // Champagne Gold (Primary)
-  '#E9D8AF', // Soft Gold Highlight
-  '#B6B0A5', // Warm Silver / Secondary
-  '#8E8A83', // Muted Taupe
-  '#64605A', // Deep Graphite
-  '#83C9A5', // Restrained Sage
-  '#D9B46F', // Muted Amber
-  '#D98282', // Muted Rose
-  '#4A4742', // Dark Slate
-];
-
-export const SpendingDonutChart: React.FC<SpendingDonutChartProps> = ({ data, total }) => {
+export const SpendingDonutChart: React.FC<{ data: { name: string; value: number }[]; total: number }> = ({ data, total }) => {
   const navigate = useNavigate();
-  const sortedData = [...data].sort((a, b) => b.value - a.value);
-
+  const sorted = [...data].sort((a, b) => b.value - a.value);
+  const [active, setActive] = useState<number | null>(null);
+  const focus = active !== null ? sorted[active] : null;
   return (
-    <div className="glass-card p-5 h-full flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold text-mm-text">
-            Spending by category
-          </h3>
-          <p className="text-xs text-mm-text2 mt-0.5">This month, by category</p>
-        </div>
-        <button 
-          onClick={() => navigate('/reports')}
-          className="text-xs text-mm-gold font-medium hover:text-mm-gold-light transition-colors"
-        >
-          Details
-        </button>
-      </div>
-
-      {sortedData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 my-auto text-center">
-          <div className="w-16 h-16 rounded-full border-2 border-dashed border-mm-elevated flex items-center justify-center text-mm-muted mb-3">
-            <span className="text-xs font-mono">0%</span>
-          </div>
-          <p className="text-xs font-medium text-mm-text2">No outflows recorded this month</p>
-          <p className="text-[11px] text-mm-muted mt-0.5">Add an expense to visualize category distributions</p>
-        </div>
+    <section className="panel p-5 sm:p-6 h-full flex flex-col" aria-labelledby="cat-title">
+      <SectionTitle id="cat-title" title="Where it went" subtitle="This month by category" action={<LinkButton onClick={() => navigate('/reports?tab=categories')}>Details</LinkButton>} />
+      {sorted.length === 0 ? (
+        <EmptyState compact icon={ChartPie} title="No spending yet this month" description="Your categories show up here as you add expenses." />
       ) : (
-        <div className="flex flex-col sm:flex-row items-center gap-6 my-auto">
-          {/* Donut Chart */}
-          <div className="relative w-40 h-40 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-center gap-6 my-auto pt-2">
+          <div className="relative w-44 h-44 shrink-0 sensitive">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={sortedData}
-                  innerRadius={50}
-                  outerRadius={68}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="#17171B"
-                  strokeWidth={2}
-                >
-                  {sortedData.map((_, i) => (
-                    <Cell key={i} fill={LUXURY_SERIES_COLORS[i % LUXURY_SERIES_COLORS.length]} />
-                  ))}
+                <Pie data={sorted} innerRadius={58} outerRadius={82} paddingAngle={sorted.length > 1 ? 2 : 0} dataKey="value" stroke="none" isAnimationActive animationDuration={900} animationEasing="ease-out"
+                  onMouseEnter={(_: unknown, i: number) => setActive(i)} onMouseLeave={() => setActive(null)} onClick={(_: unknown, i: number) => setActive(a => (a === i ? null : i))}>
+                  {sorted.map((d, i) => <Cell key={d.name} fill={categoryInfo(d.name, 'expense').color} fillOpacity={active === null || active === i ? 1 : 0.28}
+                    style={{ transition: 'fill-opacity 0.25s', cursor: 'pointer', outline: 'none' }} />)}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="donut-center flex flex-col items-center justify-center text-center">
-              <span className="text-[10px] text-mm-muted uppercase tracking-wider font-semibold">Total Spent</span>
-              <p className="text-lg font-bold text-mm-text number-display tracking-tight">
-                {formatCurrency(total)}
-              </p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-xs text-mm-muted max-w-[96px] truncate">{focus ? focus.name : 'Spent'}</span>
+              <span className="amount text-lg font-semibold text-mm-text">{formatCurrency(focus ? focus.value : total, { compact: (focus ? focus.value : total) >= 100000 })}</span>
             </div>
           </div>
-
-        {/* Analytical Legend */}
-        <div className="flex-1 space-y-2 w-full">
-          {sortedData.slice(0, 5).map((item, i) => {
-            const percentage = total > 0 ? Math.round((item.value / total) * 100) : 0;
-            return (
-              <div key={item.name} className="flex items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: LUXURY_SERIES_COLORS[i % LUXURY_SERIES_COLORS.length] }}
-                  />
-                  <span className="text-mm-text2 truncate">{item.name}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-mm-muted text-[11px] font-mono">{percentage}%</span>
-                  <span className="font-semibold text-mm-text number-display w-16 text-right">
-                    {formatCurrency(item.value)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-          </div>
+          <ul className="flex-1 w-full space-y-2.5">
+            {sorted.slice(0, 6).map((item, i) => (
+              <li key={item.name} className={`flex items-center gap-2.5 text-sm rounded-lg -mx-1.5 px-1.5 py-0.5 transition-colors ${active === i ? 'bg-mm-text/[0.05]' : ''}`}
+                onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}>
+                <i className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: categoryInfo(item.name, 'expense').color }} />
+                <span className="flex-1 text-mm-text2 truncate">{item.name}</span>
+                <span className="text-mm-muted tabular text-[13px] w-10 text-right">{total > 0 ? Math.round((item.value / total) * 100) : 0}%</span>
+                <span className="font-semibold text-mm-text tabular w-24 text-right">{formatCurrency(item.value)}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-    </div>
+    </section>
   );
 };

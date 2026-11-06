@@ -11,10 +11,17 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '@/lib/firebase';
 
+const GUEST_KEY = 'moneymate:guest';
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isConfigured: boolean;
+  /** Using the app without an account; data stays on this device. */
+  guest: boolean;
+  continueAsGuest: () => void;
+  /** Leave guest mode and go back to the sign-in screen (data is kept). */
+  exitGuest: () => void;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
@@ -26,6 +33,9 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: false,
   isConfigured: false,
+  guest: false,
+  continueAsGuest: () => {},
+  exitGuest: () => {},
   signInWithGoogle: async () => {},
   signInWithEmail: async () => {},
   signUpWithEmail: async () => {},
@@ -36,6 +46,13 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(isFirebaseConfigured);
+  const [guest, setGuest] = useState<boolean>(() => {
+    try { return localStorage.getItem(GUEST_KEY) === '1'; } catch { return false; }
+  });
+  const setGuestMode = (on: boolean) => {
+    setGuest(on);
+    try { on ? localStorage.setItem(GUEST_KEY, '1') : localStorage.removeItem(GUEST_KEY); } catch { /* private mode */ }
+  };
 
   useEffect(() => {
     if (!auth) {
@@ -45,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) setGuestMode(false);
       setLoading(false);
     });
 
@@ -75,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    setGuestMode(false);
     if (!auth) return;
     await fbSignOut(auth);
   };
@@ -84,6 +103,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       loading,
       isConfigured: isFirebaseConfigured,
+      guest: guest && !user,
+      continueAsGuest: () => setGuestMode(true),
+      exitGuest: () => setGuestMode(false),
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,

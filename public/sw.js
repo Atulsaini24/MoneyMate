@@ -1,5 +1,5 @@
 /* MoneyMate service worker: offline app shell, never caches API data. */
-const CACHE = 'moneymate-v3';
+const CACHE = 'moneymate-v4';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png'];
 
 self.addEventListener('install', e => {

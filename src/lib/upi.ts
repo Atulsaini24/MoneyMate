@@ -12,7 +12,7 @@ export function upiLink({ vpa, name, amount, note }: { vpa: string; name?: strin
 
 export const whatsappLink = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 
-export async function qrDataUrl(text: string, dark = '#0B0B0D', light = '#FFFFFF') {
+export async function qrDataUrl(text: string, dark = '#14201C', light = '#FFFFFF') {
   const QR = await import('qrcode');
   return QR.toDataURL(text, { margin: 1, width: 320, color: { dark, light }, errorCorrectionLevel: 'M' });
 }

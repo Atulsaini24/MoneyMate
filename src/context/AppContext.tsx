@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Transaction, Budget, SavingsGoal, FriendRecord, FriendPayment, UserSettings, Asset, Group } from '@/types';
+import { categoryInfo, Transaction, Budget, SavingsGoal, FriendRecord, FriendPayment, UserSettings, Asset, Group } from '@/types';
 import { deriveKey, encryptJson, decryptJson, makeVerifier, checkVerifier, newSalt, rememberKey, recallKey, type EncryptedBlob } from '@/lib/crypto';
-import { defaultSettings } from '@/data/seed';
-import { generateId, getMonthYear, setDisplayConfig } from '@/lib/utils';
+import { defaultSettings } from '@/lib/defaults';
+import { generateId, getMonthYear, setDisplayConfig, formatCurrency } from '@/lib/utils';
 import { cloud } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { confetti, haptic } from '@/lib/fx';
+import { celebrate } from '@/lib/celebrate';
 
 interface LedgerState {
   transactions: Transaction[];
@@ -340,8 +341,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTransaction = useCallback((t: Omit<Transaction, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => {
     const newT: Transaction = { ...t, id: generateId(), createdAt: new Date().toISOString() };
     setState(s => ({ ...s, transactions: [newT, ...s.transactions] }));
-    haptic(10);
-    if (!opts?.silent) showToast(`${t.type === 'income' ? 'Income' : t.type === 'transfer' ? 'Transfer' : 'Expense'} saved`);
+    if (opts?.silent) return;
+    const cat = categoryInfo(t.category, t.type);
+    const shown = celebrate({
+      kind: t.type === 'income' ? 'received' : t.type === 'transfer' ? 'transferred' : 'paid',
+      amount: t.amount, title: t.description, merchant: t.description,
+      detail: [t.type === 'transfer' ? null : t.category, t.paymentMethod].filter(Boolean).join(' · '),
+      icon: t.type === 'transfer' ? 'ArrowLeftRight' : cat.icon, color: cat.color,
+      milestone: t.type === 'income' && t.amount >= 25000,
+    });
+    if (!shown) { haptic(10); showToast(`${t.type === 'income' ? 'Income' : t.type === 'transfer' ? 'Transfer' : 'Expense'} saved`); }
   }, [showToast]);
 
   const addTransactions = useCallback((list: Omit<Transaction, 'id' | 'createdAt'>[]) => {
@@ -441,9 +450,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const room = Math.max(0, goal.targetAmount - goal.savedAmount);
     const added = Math.min(amount, room);
     setState(s => ({ ...s, goals: s.goals.map(g => (g.id === id ? { ...g, savedAmount: g.savedAmount + added } : g)) }));
-    if (added < amount) showToast(`Added ${added.toLocaleString()} — the goal only needed that much`, 'info');
-    else if (goal.savedAmount + added >= goal.targetAmount) { showToast(`${goal.name} is fully funded!`); confetti(); haptic([20, 40, 20]); }
-    else showToast(`Added to ${goal.name}`);
+    if (added <= 0) showToast(`${goal.name} is already fully funded`, 'info');
+    else if (added < amount) showToast(`Added ${formatCurrency(added)}, which was all ${goal.name} needed`, 'info');
+    else {
+      const full = goal.savedAmount + added >= goal.targetAmount;
+      const shown = celebrate({ kind: 'saved', amount: added, title: goal.name, icon: goal.icon || 'PiggyBank', color: goal.color,
+        detail: full ? 'Goal fully funded' : `${Math.round(((goal.savedAmount + added) / goal.targetAmount) * 100)}% of ${formatCurrency(goal.targetAmount)}`, milestone: full });
+      if (!shown) {
+        if (full) { showToast(`${goal.name} is fully funded`); confetti(); haptic([20, 40, 20]); }
+        else showToast(`Added to ${goal.name}`);
+      }
+    }
   }, [state.goals, showToast]);
 
   // ---- Friends --------------------------------------------------------------
@@ -472,8 +489,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...f, payments, status: (paid >= f.amount ? 'settled' : 'partially-paid') as FriendRecord['status'] };
       }),
     }));
-    showToast('Payment recorded');
-  }, [showToast]);
+    const friend = state.friends.find(f => f.id === friendId);
+    const shown = friend && celebrate({ kind: 'settled', amount: payment.amount, title: friend.name, icon: 'HandCoins', color: '#1F8A55',
+      detail: friend.type === 'owed-to-me' ? 'They paid you back' : 'You paid them back' });
+    if (!shown) showToast('Payment recorded');
+  }, [showToast, state.friends]);
 
   const settleFriend = useCallback((id: string) => {
     setState(s => ({ ...s, friends: s.friends.map(f => (f.id === id ? { ...f, status: 'settled' as const } : f)) }));
@@ -483,7 +503,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ---- Settings & data ------------------------------------------------------
   const updateSettings = useCallback((updates: Partial<UserSettings>, opts?: { silent?: boolean }) => {
     setState(s => ({ ...s, settings: { ...s.settings, ...updates } }));
-    if (!opts?.silent) showToast('Settings saved');
+    if (!opts?.silent) showToast('Saved');
   }, [showToast]);
 
   const togglePrivacy = useCallback(() => {

@@ -1,110 +1,94 @@
 import React from 'react';
-import { Plus, ScanLine } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowDownLeft, ArrowUpRight, ScanLine, Mic } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useUI } from '@/context/UIContext';
-import { getGreeting, getCurrentMonth, addMonths, percentChange } from '@/lib/utils';
-import { useInsights } from '@/lib/useInsights';
-import { totalBalance } from '@/lib/insights';
+import { getGreeting, getCurrentMonth } from '@/lib/utils';
 import { EXPENSE_CATEGORIES } from '@/types';
-import { FinancialPulse } from '@/components/dashboard/FinancialPulse';
-import { BalanceCard } from '@/components/dashboard/BalanceCard';
-import { FinancialMetricCard } from '@/components/dashboard/FinancialMetricCard';
-import { QuickActions } from '@/components/dashboard/QuickActions';
+import { Page } from '@/components/ui';
+import { TiltCard, Stagger, StaggerItem } from '@/components/motion';
+import { SafeToSpend } from '@/components/dashboard/SafeToSpend';
+import { MonthSummary } from '@/components/dashboard/MonthSummary';
+import { GettingStarted } from '@/components/dashboard/GettingStarted';
 import { SpendingDonutChart } from '@/components/dashboard/SpendingDonutChart';
 import { BudgetOverview } from '@/components/dashboard/BudgetOverview';
 import { SavingsGoalsPreview } from '@/components/dashboard/SavingsGoalsPreview';
 import { InsightsPanel } from '@/components/dashboard/InsightsPanel';
 import { UpcomingBills } from '@/components/dashboard/UpcomingBills';
 import { RecapBanner } from '@/components/dashboard/RecapBanner';
+import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { SweepPrompt } from '@/components/dashboard/SweepPrompt';
 
 export const DashboardPage: React.FC = () => {
-  const { settings, transactions, budgets, getMonthlyIncome, getMonthlyExpenses, getCategorySpending } = useApp();
-  const { openAddSheet, setScannerOpen } = useUI();
-  const { series } = useInsights();
+  const { settings, budgets, transactions, getMonthlyExpenses, getCategorySpending } = useApp();
+  const { openAddSheet, setScannerOpen, setVoiceOpen } = useUI();
+  const month = getCurrentMonth();
+  const expenses = getMonthlyExpenses(month);
 
-  const currentMonth = getCurrentMonth();
-  const prevMonth = addMonths(currentMonth, -1);
-
-  const income = getMonthlyIncome(currentMonth);
-  const expenses = getMonthlyExpenses(currentMonth);
-  const remaining = income - expenses;
-  const balance = totalBalance(transactions);
-
-  const prevIncome = getMonthlyIncome(prevMonth);
-  const prevExpenses = getMonthlyExpenses(prevMonth);
-  const prevRemaining = prevIncome - prevExpenses;
-
-  const incomeChange = prevIncome > 0 ? percentChange(income, prevIncome) : 0;
-  const expenseChange = prevExpenses > 0 ? percentChange(expenses, prevExpenses) : 0;
-  const remainingChange = prevRemaining > 0 ? percentChange(remaining, prevRemaining) : 0;
-  const monthAgo = series[0]?.value ?? 0;
-  const balanceChange = monthAgo > 0 ? percentChange(balance, monthAgo) : 0;
-
-  const categorySpending = EXPENSE_CATEGORIES.map(cat => ({
-    name: cat.name,
-    value: getCategorySpending(currentMonth, cat.name),
-  })).filter(c => c.value > 0);
-
-  const budgetData = budgets
-    .filter(b => b.month === currentMonth)
-    .map(b => ({ category: b.category, spent: getCategorySpending(currentMonth, b.category), limit: b.limit }));
-
-  const firstName = settings.name?.split(' ')[0];
+  const categorySpending = EXPENSE_CATEGORIES.map(cat => ({ name: cat.name, value: getCategorySpending(month, cat.name) })).filter(c => c.value > 0);
+  const budgetData = budgets.filter(b => b.month === month).map(b => ({ category: b.category, spent: getCategorySpending(month, b.category), limit: b.limit }));
+  const firstName = settings.name?.trim().split(' ')[0];
   const today = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const isNew = transactions.length === 0;
+
+  const quick = [
+    { label: 'Expense', icon: ArrowUpRight, color: '#D9573B', run: () => openAddSheet({ type: 'expense' }) },
+    { label: 'Income', icon: ArrowDownLeft, color: '#1F8A55', run: () => openAddSheet({ type: 'income' }) },
+    { label: 'Scan bill', icon: ScanLine, color: '#8458D4', run: () => setScannerOpen(true) },
+    { label: 'Say it', icon: Mic, color: '#2F7BD8', run: () => setVoiceOpen(true) },
+  ];
 
   return (
-    <div className="min-h-screen pb-32 lg:pb-8">
-      <div className="px-4 md:px-6 pt-5 pb-1 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs text-mm-muted">{today}</p>
-          <h1 className="text-2xl sm:text-[1.75rem] font-serif text-mm-text tracking-tight mt-0.5 truncate">
-            {getGreeting()}{firstName ? `, ${firstName}` : ''}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setScannerOpen(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-mm-line/25 text-mm-text text-xs font-semibold hover:border-mm-gold/60 transition-colors"
-          >
-            <ScanLine size={14} /> Scan receipt
-          </button>
-          <button
-            onClick={() => openAddSheet({ type: 'expense' })}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-mm-gold text-mm-on-gold font-semibold text-xs hover:bg-mm-gold-light transition-colors active:scale-95"
-          >
-            <Plus size={14} strokeWidth={2.5} /> Add expense
-          </button>
-        </div>
-      </div>
+    <Page width="wide">
+      <header className="mb-5 sm:mb-7">
+        <p className="text-sm text-mm-muted">{today}</p>
+        <h1 className="text-[1.75rem] sm:text-[2.25rem] leading-tight font-semibold text-mm-text mt-0.5">
+          {getGreeting()}{firstName ? `, ${firstName}` : ''}
+        </h1>
+      </header>
 
-      <div className="px-4 md:px-6 space-y-4 mt-4">
-        <FinancialPulse />
+      <Stagger className="space-y-4 sm:space-y-5" stagger={0.09}>
+        <StaggerItem className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] gap-4 sm:gap-5">
+          <TiltCard max={4} className="rounded-[24px]"><SafeToSpend /></TiltCard>
+          <div className="lg:hidden grid grid-cols-4 gap-1 -mx-1">
+            {quick.map((q, i) => (
+              <motion.button key={q.label} onClick={q.run} whileTap={{ scale: 0.9 }}
+                initial={{ opacity: 0, y: 14, scale: 0.85 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: 0.25 + i * 0.05, type: 'spring', stiffness: 420, damping: 24 }}
+                className="flex flex-col items-center gap-2 py-1.5 rounded-2xl">
+                <span className="w-[56px] h-[56px] rounded-full flex items-center justify-center text-white"
+                  style={{ background: `linear-gradient(150deg, color-mix(in oklab, ${q.color} 78%, white), ${q.color} 55%, color-mix(in oklab, ${q.color} 80%, black))`, boxShadow: `0 12px 22px -12px ${q.color}, inset 0 1px 0 rgb(255 255 255 / 0.35)` }}>
+                  <q.icon size={23} strokeWidth={2.2} />
+                </span>
+                <span className="text-[12.5px] font-semibold text-mm-text">{q.label}</span>
+              </motion.button>
+            ))}
+          </div>
+          <MonthSummary />
+        </StaggerItem>
 
-        <RecapBanner />
+        <StaggerItem><GettingStarted /></StaggerItem>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
-          <div className="col-span-2 lg:col-span-1"><BalanceCard balance={balance} change={balanceChange} chartData={series} /></div>
-          <FinancialMetricCard title="Income this month" amount={income} change={incomeChange} type="income" delay={0.03} />
-          <FinancialMetricCard title="Spent this month" amount={expenses} change={expenseChange} type="expense" delay={0.06} />
-          <FinancialMetricCard title="Left this month" amount={remaining} change={remainingChange} type="remaining" delay={0.09} />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
-          <InsightsPanel />
-          <UpcomingBills />
-        </div>
-
-        <QuickActions />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <SpendingDonutChart data={categorySpending} total={expenses} />
-          <BudgetOverview budgets={budgetData} />
-        </div>
-
-        <SavingsGoalsPreview />
-        <SweepPrompt />
-      </div>
-    </div>
+        {/* A brand-new account sees the checklist only, not a wall of empty panels */}
+        {!isNew && (
+          <>
+            <StaggerItem><RecapBanner /></StaggerItem>
+            <StaggerItem className="lg:hidden"><SavingsGoalsPreview /></StaggerItem>
+            <StaggerItem className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+              <InsightsPanel />
+              <UpcomingBills />
+            </StaggerItem>
+            <StaggerItem className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+              <RecentTransactions />
+              <SpendingDonutChart data={categorySpending} total={expenses} />
+            </StaggerItem>
+            <StaggerItem className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+              <BudgetOverview budgets={budgetData} />
+              <div className="hidden lg:block"><SavingsGoalsPreview /></div>
+            </StaggerItem>
+          </>
+        )}
+      </Stagger>
+      <SweepPrompt />
+    </Page>
   );
 };

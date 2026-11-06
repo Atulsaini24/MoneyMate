@@ -1,291 +1,141 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Edit3, Trash2, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, PiggyBank, Trash2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { BudgetAutopilot } from '@/components/budgets/BudgetAutopilot';
-import { EXPENSE_CATEGORIES } from '@/types';
-import { formatCurrency, getCurrentMonth, getMonthName, getProgressColor } from '@/lib/utils';
+import { EXPENSE_CATEGORIES, categoryInfo, type Budget } from '@/types';
+import { addMonths, formatCurrency, getCurrentMonth, getMonthName, daysInMonth } from '@/lib/utils';
 import { CategoryIcon } from '@/components/shared/CategoryIcon';
-import { Modal } from '@/components/shared/Modal';
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
+import { Button, EmptyState, Field, IconButton, MoneyInput, Page, PageHeader, Progress, Select } from '@/components/ui';
 
 export const BudgetsPage: React.FC = () => {
   const { budgets, addBudget, updateBudget, deleteBudget, getCategorySpending } = useApp();
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
-  const [showAddBudget, setShowAddBudget] = useState(false);
-  const [editBudgetId, setEditBudgetId] = useState<string | null>(null);
-  const [deleteBudgetId, setDeleteBudgetId] = useState<string | null>(null);
+  const current = getCurrentMonth();
+  const [month, setMonth] = useState(current);
+  const [form, setForm] = useState<{ id?: string; category: string; limit: string; threshold: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Budget | null>(null);
 
-  // Form state
-  const [formCategory, setFormCategory] = useState('');
-  const [formLimit, setFormLimit] = useState('');
-  const [formThreshold, setFormThreshold] = useState('80');
+  const list = budgets.filter(b => b.month === month)
+    .map(b => ({ ...b, spent: getCategorySpending(month, b.category) }))
+    .sort((a, b) => b.spent / b.limit - a.spent / a.limit);
+  const total = list.reduce((s, b) => s + b.limit, 0);
+  const spent = list.reduce((s, b) => s + b.spent, 0);
+  const isCurrent = month === current;
+  const isPast = month < current;
+  const daysLeft = isCurrent ? daysInMonth(month) - new Date().getDate() + 1 : 0;
+  const elapsedPct = isCurrent ? ((new Date().getDate() - 1) / daysInMonth(month)) * 100 : isPast ? 100 : 0;
 
-  const monthBudgets = budgets.filter(b => b.month === selectedMonth);
-  const totalAllocated = monthBudgets.reduce((s, b) => s + b.limit, 0);
-  const totalSpent = monthBudgets.reduce((s, b) => s + getCategorySpending(selectedMonth, b.category), 0);
-  const totalRemaining = totalAllocated - totalSpent;
+  const used = new Set(list.map(b => b.category));
+  const available = EXPENSE_CATEGORIES.filter(c => !used.has(c.name) || c.name === (form?.id ? budgets.find(b => b.id === form.id)?.category : ''));
+  const limit = parseFloat(form?.limit || '');
+  const canSave = Boolean(form?.category) && Number.isFinite(limit) && limit > 0;
 
-  const usedCategories = monthBudgets.map(b => b.category);
-  const availableCategories = EXPENSE_CATEGORIES.filter(c => !usedCategories.includes(c.name));
-
-  const resetForm = () => {
-    setFormCategory('');
-    setFormLimit('');
-    setFormThreshold('80');
+  const save = () => {
+    if (!form || !canSave) return;
+    const data = { category: form.category, limit, alertThreshold: parseInt(form.threshold) };
+    if (form.id) updateBudget(form.id, data); else addBudget({ ...data, month });
+    setForm(null);
   };
-
-  const handleSaveBudget = () => {
-    if (!formCategory || !formLimit || parseFloat(formLimit) <= 0) return;
-    
-    if (editBudgetId) {
-      updateBudget(editBudgetId, {
-        category: formCategory,
-        limit: parseFloat(formLimit),
-        alertThreshold: parseInt(formThreshold),
-      });
-      setEditBudgetId(null);
-    } else {
-      addBudget({
-        category: formCategory,
-        limit: parseFloat(formLimit),
-        month: selectedMonth,
-        alertThreshold: parseInt(formThreshold),
-      });
-    }
-    resetForm();
-    setShowAddBudget(false);
-  };
-
-  const handleEdit = (id: string) => {
-    const b = budgets.find(b => b.id === id);
-    if (!b) return;
-    setFormCategory(b.category);
-    setFormLimit(b.limit.toString());
-    setFormThreshold((b.alertThreshold || 80).toString());
-    setEditBudgetId(id);
-    setShowAddBudget(true);
-  };
-
-  // Month navigation
-  const months: string[] = [];
-  for (let i = -3; i <= 3; i++) {
-    const d = new Date();
-    d.setMonth(d.getMonth() + i);
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
 
   return (
-    <div className="min-h-screen pb-32 lg:pb-8">
-      <div className="px-4 md:px-6 py-5 md:py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-mm-text tracking-tight">Budgets</h1>
-            <p className="text-xs text-mm-muted mt-0.5">Control allocations and disciplined expenditure thresholds</p>
-          </div>
-          <button
-            onClick={() => { resetForm(); setEditBudgetId(null); setShowAddBudget(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-semibold text-xs tracking-wider uppercase transition-all shadow-sm active:scale-95 flex-shrink-0"
-          >
-            <Plus size={15} strokeWidth={2.5} />
-            <span className="hidden sm:inline">Set Budget</span>
-            <span className="sm:hidden">Set</span>
-          </button>
-        </div>
+    <Page>
+      <PageHeader title="Budgets" subtitle="Set a monthly limit for each category. MoneyMate warns you before you cross it."
+        actions={<Button icon={Plus} onClick={() => setForm({ category: available[0]?.name || '', limit: '', threshold: '80' })} disabled={!available.length}>Add budget</Button>} />
 
-        {/* Month selector */}
-        <div className="-mx-4 px-4 flex gap-1.5 sm:gap-2 overflow-x-auto pb-2.5 mb-4 scrollbar-none">
-          {months.map(month => (
-            <button
-              key={month}
-              onClick={() => setSelectedMonth(month)}
-              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
-                selectedMonth === month
-                  ? 'bg-mm-gold/15 text-mm-gold border border-mm-gold/35 shadow-sm'
-                  : 'bg-mm-bg2 text-mm-muted hover:text-mm-text border border-mm-line/10'
-              }`}
-            >
-              {getMonthName(month)}
-            </button>
-          ))}
-        </div>
-
-        <BudgetAutopilot month={selectedMonth} />
-
-        {/* Monthly Budget Overview card */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card-elevated p-4 sm:p-5 mb-5 specular-sheen"
-        >
-          <h3 className="text-xs text-mm-text2 font-semibold uppercase tracking-wider mb-2.5">Monthly Budget Summary</h3>
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-1 mb-3">
-            <div>
-              <p className="text-2xl sm:text-3xl font-medium text-mm-text number-display">
-                {formatCurrency(totalAllocated)}
-              </p>
-            </div>
-            <div className="sm:text-right">
-              <p className="text-xs text-mm-muted number-display">
-                {formatCurrency(totalSpent)} spent • {formatCurrency(totalRemaining > 0 ? totalRemaining : 0)} left
-              </p>
-            </div>
-          </div>
-          <div className="progress-bar h-2">
-            <motion.div
-              className="progress-bar-fill"
-              style={{ backgroundColor: getProgressColor(totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0) }}
-              initial={{ width: 0 }}
-              animate={{ width: `${totalAllocated > 0 ? Math.min((totalSpent / totalAllocated) * 100, 100) : 0}%` }}
-              transition={{ duration: 0.8 }}
-            />
-          </div>
-          <p className="text-xs text-mm-muted mt-2 number-display">
-            {totalAllocated > 0 ? Math.round((totalSpent / totalAllocated) * 100) : 0}% of total budget used
-          </p>
-        </motion.div>
-
-        {/* Budget cards */}
-        {monthBudgets.length === 0 ? (
-          <EmptyState
-            image="/assets/moneymate/empty/empty-budgets-icon.jpg"
-            title="No budgets set for this month"
-            description="Create monthly category budgets to keep spending disciplined and receive threshold alerts."
-            actionText="Set Category Budget"
-            onAction={() => setShowAddBudget(true)}
-          />
-        ) : (
-          <div className="space-y-3">
-            {monthBudgets.map((budget, i) => {
-              const spent = getCategorySpending(selectedMonth, budget.category);
-              const percentage = Math.round((spent / budget.limit) * 100);
-              const color = getProgressColor(percentage);
-              const catInfo = EXPENSE_CATEGORIES.find(c => c.name === budget.category);
-              const isOverBudget = spent > budget.limit;
-              const isNearLimit = percentage >= (budget.alertThreshold || 80);
-
-              return (
-                <motion.div
-                  key={budget.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03, duration: 0.2 }}
-                  className="glass-card p-4 hover:border-mm-line/22 transition-all group"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      {catInfo && <CategoryIcon name={catInfo.icon} color={catInfo.color} size={17} />}
-                      <div>
-                        <h4 className="text-sm font-medium text-mm-text">{budget.category}</h4>
-                        <p className="text-xs text-mm-muted number-display">
-                          {formatCurrency(spent)} / {formatCurrency(budget.limit)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {(isOverBudget || isNearLimit) && (
-                        <AlertTriangle size={14} className={isOverBudget ? 'text-mm-negative' : 'text-mm-warning'} />
-                      )}
-                      <span className="text-sm font-semibold number-display" style={{ color }}>
-                        {percentage}%
-                      </span>
-                      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleEdit(budget.id)} className="p-1.5 rounded-lg hover:bg-mm-text/5" aria-label="Edit budget">
-                          <Edit3 size={14} className="text-mm-muted hover:text-mm-text" />
-                        </button>
-                        <button onClick={() => setDeleteBudgetId(budget.id)} className="p-1.5 rounded-lg hover:bg-mm-negative/10" aria-label="Delete budget">
-                          <Trash2 size={14} className="text-mm-muted hover:text-mm-negative" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="progress-bar">
-                    <motion.div
-                      className="progress-bar-fill"
-                      style={{ backgroundColor: color }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(percentage, 100)}%` }}
-                      transition={{ duration: 0.7, delay: i * 0.03 }}
-                    />
-                  </div>
-                  {isOverBudget && (
-                    <p className="text-xs text-mm-negative mt-2 number-display">
-                      Over budget by {formatCurrency(spent - budget.limit)}
-                    </p>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
+      <div className="flex items-center gap-2 mb-5">
+        <IconButton label="Previous month" icon={ChevronLeft} onClick={() => setMonth(m => addMonths(m, -1))} />
+        <h2 className="text-lg font-semibold text-mm-text min-w-[150px] text-center">{getMonthName(month)}</h2>
+        <IconButton label="Next month" icon={ChevronRight} onClick={() => setMonth(m => addMonths(m, 1))} />
+        {!isCurrent && <Button variant="ghost" size="sm" onClick={() => setMonth(current)}>This month</Button>}
       </div>
 
-      {/* Add/Edit Budget Modal */}
-      <Modal
-        isOpen={showAddBudget}
-        onClose={() => { setShowAddBudget(false); setEditBudgetId(null); resetForm(); }}
-        title={editBudgetId ? 'Edit Budget' : 'Add Budget'}
-        footer={
-          <button
-            onClick={handleSaveBudget}
-            disabled={!formCategory || !formLimit}
-            className="w-full py-3.5 rounded-xl bg-mm-gold hover:bg-mm-gold-light text-mm-on-gold font-bold text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-[0.98] cursor-pointer"
-          >
-            {editBudgetId ? 'Update Budget Plan' : 'Confirm Budget Allocation'}
-          </button>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Category</label>
-            <select
-              value={formCategory}
-              onChange={e => setFormCategory(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark] cursor-pointer"
-            >
-              <option value="">Select category</option>
-              {(editBudgetId ? EXPENSE_CATEGORIES : availableCategories).map(cat => (
-                <option key={cat.name} value={cat.name}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Monthly Limit (₹)</label>
-            <input
-              type="number"
-              placeholder="Enter budget limit"
-              value={formLimit}
-              onChange={e => setFormLimit(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 number-display"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-mm-text2 font-medium mb-1.5 block">Alert Threshold (%)</label>
-            <input
-              type="number"
-              placeholder="80"
-              value={formThreshold}
-              onChange={e => setFormThreshold(e.target.value)}
-              min="50"
-              max="100"
-              className="w-full px-4 py-2.5 rounded-xl bg-mm-bg2 border border-mm-line/16 text-sm text-mm-text placeholder:text-mm-muted focus:outline-none focus:border-mm-gold/50 number-display"
-            />
-          </div>
-        </div>
-      </Modal>
+      {!isPast && <BudgetAutopilot month={month} />}
 
-      <ConfirmDialog
-        isOpen={!!deleteBudgetId}
-        onClose={() => setDeleteBudgetId(null)}
-        onConfirm={() => deleteBudgetId && deleteBudget(deleteBudgetId)}
-        title="Delete Budget"
-        message="Are you sure you want to remove this budget?"
-        confirmText="Delete"
-        variant="danger"
-      />
-    </div>
+      {list.length > 0 && (
+        <section className="panel p-5 sm:p-6 mb-5" aria-label="Month total">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[13px] text-mm-muted">{spent > total ? 'Over your total budget by' : 'Left to spend'}</p>
+              <p className={`amount text-[2rem] font-semibold leading-tight ${spent > total ? 'text-mm-negative' : 'text-mm-text'}`}>{formatCurrency(Math.abs(total - spent))}</p>
+            </div>
+            <p className="text-sm text-mm-text2 tabular">{formatCurrency(spent)} spent of {formatCurrency(total)}</p>
+          </div>
+          <div className="relative mt-4">
+            <Progress value={total ? (spent / total) * 100 : 0} tone="auto" label="Total budget used" className="h-2.5" />
+            {isCurrent && <span className="absolute -top-1 h-[18px] w-0.5 rounded bg-mm-text/40" style={{ left: `${elapsedPct}%` }} title="Where you’d be at an even pace" />}
+          </div>
+          {isCurrent && <p className="text-[13px] text-mm-muted mt-2.5">{daysLeft} day{daysLeft === 1 ? '' : 's'} left. The marker shows an even pace through the month.</p>}
+        </section>
+      )}
+
+      {list.length === 0 ? (
+        <div className="panel">
+          <EmptyState icon={PiggyBank} title={`No budgets for ${getMonthName(month)}`}
+            description="Start with the categories where money tends to slip away, like food delivery or shopping."
+            action={<Button icon={Plus} onClick={() => setForm({ category: available[0]?.name || '', limit: '', threshold: '80' })}>Add budget</Button>} />
+        </div>
+      ) : (
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {list.map(b => {
+            const cat = categoryInfo(b.category, 'expense');
+            const pct = (b.spent / b.limit) * 100;
+            const left = b.limit - b.spent;
+            const warn = pct >= (b.alertThreshold || 80);
+            return (
+              <li key={b.id}>
+                <button onClick={() => setForm({ id: b.id, category: b.category, limit: String(b.limit), threshold: String(b.alertThreshold || 80) })}
+                  className="w-full panel lift p-4 sm:p-5 text-left hover:border-mm-line/20">
+                  <div className="flex items-center gap-3">
+                    <CategoryIcon name={cat.icon} color={cat.color} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-semibold text-mm-text truncate">{b.category}</p>
+                      <p className="text-[13px] text-mm-muted tabular">{formatCurrency(b.spent)} of {formatCurrency(b.limit)}</p>
+                    </div>
+                    <span className={`amount text-lg font-semibold ${left < 0 ? 'text-mm-negative' : warn ? 'text-mm-warning' : 'text-mm-text'}`}>{Math.round(pct)}%</span>
+                  </div>
+                  <Progress value={pct} tone="auto" className="mt-3.5" label={`${b.category} budget used`} />
+                  <p className={`text-[13px] mt-2.5 ${left < 0 ? 'text-mm-negative font-medium' : 'text-mm-text2'}`}>
+                    {left < 0 ? `Over by ${formatCurrency(-left)}`
+                      : isCurrent ? `${formatCurrency(left)} left · about ${formatCurrency(left / Math.max(1, daysLeft))} a day`
+                      : `${formatCurrency(left)} ${isPast ? 'unspent' : 'available'}`}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Dialog open={!!form} onClose={() => setForm(null)} title={form?.id ? `Edit ${form.category} budget` : `New budget for ${getMonthName(month)}`}
+        footer={
+          <div className="flex gap-2">
+            {form?.id && <IconButton label="Delete budget" icon={Trash2} tone="danger" onClick={() => { const b = budgets.find(x => x.id === form.id); if (b) setConfirmDelete(b); }} />}
+            <Button size="lg" className="flex-1" onClick={save} disabled={!canSave}>{form?.id ? 'Save changes' : 'Add budget'}</Button>
+          </div>
+        }>
+        {form && (
+          <form className="space-y-4 pt-1" onSubmit={e => { e.preventDefault(); save(); }}>
+            <Field label="Category" htmlFor="b-cat">
+              <Select id="b-cat" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} disabled={Boolean(form.id)}>
+                {(form.id ? EXPENSE_CATEGORIES : available).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Monthly limit" htmlFor="b-limit" hint={form.category ? `You spent ${formatCurrency(getCategorySpending(addMonths(month, -1), form.category))} on this last month.` : undefined}>
+              <MoneyInput id="b-limit" value={form.limit} onChange={e => setForm({ ...form, limit: e.target.value })} placeholder="0" data-autofocus />
+            </Field>
+            <Field label="Warn me at" htmlFor="b-thr">
+              <Select id="b-thr" value={form.threshold} onChange={e => setForm({ ...form, threshold: e.target.value })}>
+                {[50, 60, 70, 80, 90, 100].map(v => <option key={v} value={v}>{v}% of the limit</option>)}
+              </Select>
+            </Field>
+            <button type="submit" className="hidden" aria-hidden tabIndex={-1} />
+          </form>
+        )}
+      </Dialog>
+
+      <ConfirmDialog isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} variant="danger" confirmText="Delete"
+        title={`Delete the ${confirmDelete?.category} budget?`} message="Your transactions aren’t affected."
+        onConfirm={() => { if (confirmDelete) { deleteBudget(confirmDelete.id); setForm(null); } }} />
+    </Page>
   );
 };
-

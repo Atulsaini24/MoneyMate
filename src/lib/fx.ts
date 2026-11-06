@@ -1,5 +1,5 @@
 /**
- * Small, dependency-free effects: confetti, haptics and the card spotlight.
+ * Small, dependency-free effects: confetti and haptics.
  * Every effect checks for reduced motion first.
  */
 const reduced = () =>
@@ -12,9 +12,9 @@ export function haptic(pattern: number | number[] = 8) {
   try { navigator.vibrate?.(pattern); } catch { /* unsupported */ }
 }
 
-const GOLD = ['#D6BC86', '#E9D8AF', '#F5F1E8', '#83C9A5', '#C9A45C'];
+const COLORS = ['#F5C451', '#0B6B63', '#4DC0AE', '#E0782F', '#2F7BD8', '#C2478A'];
 
-/** Gold confetti burst from a point (defaults to the top-centre of the screen). */
+/** Confetti burst from a point (defaults to the top-centre of the screen). */
 export function confetti(opts: { x?: number; y?: number; count?: number; spread?: number } = {}) {
   if (reduced() || typeof document === 'undefined') return;
   const canvas = document.createElement('canvas');
@@ -35,7 +35,7 @@ export function confetti(opts: { x?: number; y?: number; count?: number; spread?
       x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
       w: 5 + Math.random() * 6, h: 8 + Math.random() * 8,
       r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.35,
-      c: GOLD[(Math.random() * GOLD.length) | 0], life: 0,
+      c: COLORS[(Math.random() * COLORS.length) | 0], life: 0,
     };
   });
 
@@ -59,29 +59,4 @@ export function confetti(opts: { x?: number; y?: number; count?: number; spread?
     else canvas.remove();
   };
   requestAnimationFrame(tick);
-}
-
-/**
- * One pointer listener for the whole app: the card under the cursor gets
- * --mx/--my so its ::before glow follows the pointer.
- */
-export function installSpotlight() {
-  if (typeof window === 'undefined' || !window.matchMedia('(hover: hover)').matches) return () => {};
-  let last: HTMLElement | null = null;
-  let raf = 0;
-  const onMove = (e: PointerEvent) => {
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => {
-      const el = (e.target as HTMLElement | null)?.closest<HTMLElement>('.glass-card, .glass-card-elevated, .spotlight');
-      if (last && last !== el) last.style.removeProperty('--spot');
-      if (!el) { last = null; return; }
-      const r = el.getBoundingClientRect();
-      el.style.setProperty('--mx', `${e.clientX - r.left}px`);
-      el.style.setProperty('--my', `${e.clientY - r.top}px`);
-      el.style.setProperty('--spot', '1');
-      last = el;
-    });
-  };
-  window.addEventListener('pointermove', onMove, { passive: true });
-  return () => window.removeEventListener('pointermove', onMove);
 }

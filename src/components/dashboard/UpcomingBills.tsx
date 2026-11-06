@@ -1,47 +1,40 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { CalendarClock } from 'lucide-react';
 import { useInsights } from '@/lib/useInsights';
 import { formatCurrency } from '@/lib/utils';
-import { CategoryIcon } from '@/components/shared/CategoryIcon';
-import { EXPENSE_CATEGORIES } from '@/types';
+import { MerchantLogo } from '@/components/shared/MerchantLogo';
+import { categoryInfo } from '@/types';
+import { LinkButton, SectionTitle } from '@/components/ui';
 
-const when = (d: number) => (d < 0 ? `${-d}d overdue` : d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`);
+const when = (d: number) => (d < 0 ? `${-d} day${d === -1 ? '' : 's'} overdue` : d === 0 ? 'Due today' : d === 1 ? 'Due tomorrow' : `In ${d} days`);
 
 export const UpcomingBills: React.FC = () => {
   const { recurring } = useInsights();
+  const navigate = useNavigate();
   const upcoming = recurring.filter(r => r.daysUntil >= -3 && r.daysUntil <= 30).slice(0, 5);
   const monthly = recurring.reduce((s, r) => s + r.amount, 0);
-
   return (
-    <section className="glass-card p-5" aria-labelledby="bills-title">
-      <div className="flex items-baseline justify-between mb-3">
-        <h2 id="bills-title" className="text-sm font-semibold text-mm-text">Upcoming bills</h2>
-        {recurring.length > 0 && (
-          <Link to="/reports?tab=subscriptions" className="text-xs text-mm-gold hover:text-mm-gold-light">
-            {formatCurrency(monthly)}/mo in total
-          </Link>
-        )}
-      </div>
+    <section className="panel p-5 sm:p-6" aria-labelledby="bills-title">
+      <SectionTitle id="bills-title" title="Coming up" subtitle={recurring.length ? `${formatCurrency(monthly)} a month in repeating payments` : undefined}
+        action={recurring.length ? <LinkButton onClick={() => navigate('/reports?tab=subscriptions')}>All bills</LinkButton> : undefined} />
       {upcoming.length === 0 ? (
-        <div className="flex gap-3 py-4 text-sm text-mm-text2">
-          <CalendarClock size={18} className="text-mm-muted shrink-0" />
-          <p className="leading-relaxed">
-            Repeating payments like rent, phone and streaming show up here automatically once they've happened twice.
-          </p>
+        <div className="flex gap-3 py-3 text-sm text-mm-text2">
+          <CalendarClock size={18} className="text-mm-muted shrink-0 mt-0.5" />
+          <p className="leading-relaxed">Rent, phone and streaming payments appear here on their own once they’ve happened twice, about a month apart.</p>
         </div>
       ) : (
-        <ul className="space-y-1">
+        <ul className="divide-hairline">
           {upcoming.map(r => {
-            const cat = EXPENSE_CATEGORIES.find(c => c.name === r.category);
+            const cat = categoryInfo(r.category, 'expense');
             return (
-              <li key={r.key} className="flex items-center gap-3 py-2">
-                <CategoryIcon name={cat?.icon || 'Circle'} color={cat?.color || '#D6BC86'} size={15} />
+              <li key={r.key} className="flex items-center gap-3 py-2.5">
+                <MerchantLogo description={r.name} icon={cat.icon} color={cat.color} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-mm-text truncate">{r.name}</p>
-                  <p className={`text-xs ${r.daysUntil <= 2 ? 'text-mm-warning' : 'text-mm-muted'}`}>{when(r.daysUntil)}</p>
+                  <p className="text-[15px] font-medium text-mm-text truncate">{r.name}</p>
+                  <p className={`text-[13px] ${r.daysUntil < 0 ? 'text-mm-negative' : r.daysUntil <= 2 ? 'text-mm-warning' : 'text-mm-muted'}`}>{when(r.daysUntil)}</p>
                 </div>
-                <span className="text-sm text-mm-text number-display">{formatCurrency(r.amount)}</span>
+                <span className="amount text-[15px] font-semibold text-mm-text">{formatCurrency(r.amount)}</span>
               </li>
             );
           })}

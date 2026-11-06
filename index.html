@@ -1,23 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-IN">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MoneyMate</title>
+    <meta name="description" content="Track spending, plan budgets, scan receipts and see what's safe to spend today." />
+    <meta name="theme-color" content="#F3F5F2" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="MoneyMate" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0B0B0D" />
-    <meta name="description" content="Track spending, plan budgets, scan receipts and see what's safe to spend today." />
-    <title>MoneyMate</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet" />
+    <script>
+      // Apply the saved theme before first paint so there's no flash.
+      (function () {
+        try {
+          var keys = Object.keys(localStorage).filter(function (k) { return k.indexOf('moneymate:v2:') === 0; });
+          var theme = 'system';
+          for (var i = 0; i < keys.length; i++) {
+            var s = JSON.parse(localStorage.getItem(keys[i]) || '{}').settings;
+            if (s && s.theme) { theme = s.theme; break; }
+          }
+          var dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) { document.documentElement.classList.add('dark'); document.querySelector('meta[name=theme-color]').setAttribute('content', '#0C1311'); }
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      /* Boot splash: shown before any JavaScript runs, replaced when the app mounts. */
+      .mm-boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: #F3F5F2; color: #14201C; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; z-index: 10; }
+      .dark .mm-boot { background: #0C1311; color: #E6EEEA; }
+      .mm-boot-stage { perspective: 600px; width: 84px; height: 84px; position: relative; }
+      .mm-boot-shadow { position: absolute; left: 50%; bottom: -26px; width: 64px; height: 10px; margin-left: -32px; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .22), transparent); animation: mm-boot-shadow 1.8s cubic-bezier(.45,0,.55,1) infinite; }
+      .mm-boot-coin { position: relative; width: 84px; height: 84px; transform-style: preserve-3d; animation: mm-boot-spin 1.8s cubic-bezier(.45,0,.55,1) infinite; }
+      .mm-boot-coin i { position: absolute; inset: 0; border-radius: 50%; background: #A86E0C; }
+      .mm-boot-face { position: absolute; inset: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 40px/1 system-ui, sans-serif; color: #7A4F05;
+        background: radial-gradient(circle at 34% 28%, #FFE8A3 0%, #F5C451 38%, #D99A1E 78%, #B57A10 100%);
+        box-shadow: inset 0 0 0 5px rgb(255 255 255 / .18), inset 0 0 0 7px rgb(122 79 5 / .25), inset 0 -6px 12px rgb(122 79 5 / .35); backface-visibility: hidden; }
+      .mm-boot-face.back { transform: rotateY(180deg) translateZ(4px); }
+      .mm-boot-face.front { transform: translateZ(4px); }
+      .mm-boot-word { font-weight: 650; font-size: 19px; letter-spacing: -.01em; opacity: .92; }
+      .mm-boot-bar { width: 120px; height: 3px; border-radius: 3px; overflow: hidden; background: rgb(20 32 28 / .08); }
+      .dark .mm-boot-bar { background: rgb(230 238 234 / .1); }
+      .mm-boot-bar::after { content: ''; display: block; width: 40%; height: 100%; border-radius: inherit; background: #0B6B63; animation: mm-boot-bar 1.1s cubic-bezier(.65,0,.35,1) infinite; }
+      .dark .mm-boot-bar::after { background: #4DC0AE; }
+      @keyframes mm-boot-spin { 0% { transform: translateY(0) rotateY(0); } 50% { transform: translateY(-16px) rotateY(180deg); } 100% { transform: translateY(0) rotateY(360deg); } }
+      @keyframes mm-boot-shadow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.7); opacity: .5; } }
+      @keyframes mm-boot-bar { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+      @media (prefers-reduced-motion: reduce) { .mm-boot-coin, .mm-boot-shadow, .mm-boot-bar::after { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="mm-boot" role="status" aria-label="Loading MoneyMate"><div class="mm-boot-stage"><div class="mm-boot-coin"><i style="transform:translateZ(-3px)"></i><i style="transform:translateZ(-2px)"></i><i style="transform:translateZ(-1px)"></i><i style="transform:translateZ(0px)"></i><i style="transform:translateZ(1px)"></i><i style="transform:translateZ(2px)"></i><i style="transform:translateZ(3px)"></i><span class="mm-boot-face front">₹</span><span class="mm-boot-face back">₹</span></div><span class="mm-boot-shadow"></span></div><span class="mm-boot-word">MoneyMate</span><span class="mm-boot-bar"></span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

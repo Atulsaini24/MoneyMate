@@ -1,5 +1,114 @@
 # Changelog
 
+## 4.2.0
+
+### Payment confirmation
+- **Full-screen "done" moment** after saving a payment, like a UPI app: green grows out of the button you tapped, a white coin flips in and its tick draws, rings ripple out and sparks burst. The amount rolls in, and a receipt card shows who was paid (with their logo), when, and a reference number. It has Share and Done buttons and closes itself after about 5 seconds unless you touch the screen.
+- Also plays for money added to a goal (with confetti when the goal is fully funded) and for IOU payments.
+- **Sounds**: a two-note bell chime for payments and a coin "ting" for goals, synthesised with the Web Audio API (no audio files, works offline). Phones also get a short vibration.
+- Both can be turned off in Settings → Appearance; with the confirmation off, the old toast is shown instead.
+
+### Real logos and photos
+- **Merchant logos** for about 100 brands (Swiggy, Zomato, Uber, Netflix, Spotify, Airtel, Jio, IndiGo, HDFC, PhonePe, Paytm and more) in transactions, bills, subscriptions and search, from Simple Icons (CC0). Brands Simple Icons doesn't carry (Amazon, Flipkart, Ola, Blinkit, Zepto…) show a letter in their brand colour rather than an imitation logo. Unknown names keep the category icon.
+- **Goal photos** from Unsplash, chosen by the goal's name ("Goa trip" gets a beach) or its icon. They shimmer while loading and fall back to a coloured cover if a photo can't load.
+
+### Phones
+- Floating glass bottom dock with a raised + button; its menu springs up out of the button instead of opening a sheet.
+- Round, colourful quick actions on Home; goals as a swipeable photo carousel near the top.
+- Add sheet: a big centred amount, the merchant's logo appears as you type, one-tap chips for your usual merchants, and payment methods as chips. The button shows the amount ("Save ₹1,299").
+- The balance card tilts with the phone's gyroscope (iOS asks for permission on first tap).
+- Pull down at the top of any page to sync, with a spinning gold coin.
+- Pages slide in from the side their tab sits on.
+- The top bar on Home shows "₹3,117 safe today" once you scroll past the card.
+- Transactions filters scroll sideways so their labels are no longer cut off; the notification badge no longer covers the bell.
+- Dates read "Today", "Yesterday" or "4 Nov" instead of "6 Nov 2026".
+
+### Desktop
+- A custom pointer: a dot with a trailing ring that wraps small buttons, swells over larger ones, says "Tap" over the 3D scenes and steps aside for text fields. Mouse only, and off with Reduce motion.
+
+### Loading
+- A 3D spinning-coin splash is part of index.html, so it shows the instant the page opens, before any JavaScript loads.
+- Skeleton screens shaped like the page that's loading (Home, lists, cards with photos), with an accent-to-gold progress line.
+- Fixed: the old shimmer used the CSS background shorthand, which erased its own base colour.
+
+### Sign-in on phones
+- The headline reveals word by word, the 3D banknote tilts with the phone, and a row of bank and UPI app logos shows whose SMS MoneyMate can read.
+
+## 4.1.0
+
+### 3D
+- **Sign-in**: a real-time 3D banknote that ripples, with gold coins floating around it and leaning toward your cursor.
+- **Home**: a 3D stack of gold coins with the ₹ embossed on top. Its height is your data: the share of this month's income that's still free (not spent, not set aside for bills). Coins drop in with a bounce, the stack follows the cursor, and tapping it makes the coins hop. Before any income is added, a single coin turns slowly.
+- **Goals**: a coin stack showing how much of all your goals you've saved.
+- Built with three.js and loaded only on pages that show it (about 137 KB gzipped).
+
+### Motion
+- The safe-to-spend figure rolls like an odometer; other figures count up.
+- Page titles reveal word by word; sections, cards and transaction rows cascade in.
+- Sliding highlights on the sidebar, bottom tab bar, tabs and switches; the theme icon spins when you switch.
+- Cards tilt in 3D on desktop with a light that follows the cursor; clickable cards lift on hover; primary buttons have a shine sweep.
+- A slow colour wash drifts behind the app, and the banknote line-work draws itself in.
+- Success messages draw their tick; the category chart dims other slices when you point at one.
+- Skeleton placeholders with a shimmer and a top progress bar replace the loading spinner.
+
+### Performance and comfort
+- The coin stack only renders while something moves, then sleeps. Constant motion is capped at 30fps, resolution is capped, and the 3D pauses when it's off-screen or the tab is hidden.
+- On devices without a graphics chip, or if frames get slow, the 3D shows as a still picture.
+- Cards hold still while the pointer is over a button, so nothing slides away as you click.
+- The phone's "reduce motion" setting and Settings → Reduce motion turn all of this off.
+
+## 4.0.0
+
+A full redesign of the interface, plus a pass to remove anything fake and fix what was broken.
+
+### Design
+- **New look**, inspired by Indian banknotes: a cool paper background, deep ink text, a peacock accent, and one marigold "safe to spend today" panel with a guilloche engraving. Replaces the black-and-gold theme.
+- **Light, dark and Auto themes**. Auto follows the device and updates live. The saved theme is applied before first paint, so there's no flash.
+- **Bricolage Grotesque and Figtree**, bundled with the app instead of loaded from Google Fonts, so text renders the same offline. Tabular figures for every amount.
+- **Accent colours** renamed and retuned for both themes: Peacock (default), Marigold, Leaf, Indigo, Rose and Plum.
+- **Category colours** are now distinct hues, so charts and lists can be told apart at a glance.
+- **Crisp icons instead of photos.** Goal pictures, empty-state images and onboarding images were 87 to 150px and looked blurry; goals now have an icon and a colour you choose. Goals made in v3 keep a matching icon.
+- New app icon, favicon and PWA icons.
+
+### Navigation and layout
+- **Phones**: a bottom tab bar (Home, Activity, Add, Budgets, More). Add opens a sheet with Expense, Income, Transfer, Scan receipt, Say it and Import SMS. More lists every section and the theme switch. The seven-button top bar and hamburger drawer are gone.
+- **Desktop**: grouped sidebar with your account and sync status at the bottom, and a slim top bar with search, scan, voice, hide amounts, theme, notifications and Add transaction.
+- **One dialog component** for the whole app: a bottom sheet you can swipe down on phones, a centred panel on desktop. Closes with Escape, keeps keyboard focus inside, locks page scroll, makes the page behind it inert for screen readers, and returns focus afterwards.
+- Every page uses the same container, header and spacing, and was checked for sideways scrolling at 320, 375 and 390px wide, with very long names and very large amounts.
+
+### Screens
+- **Home**: the safe-to-spend panel, a this-month summary with the health score and its breakdown, a "Get set up" checklist worked out from what you've actually done, recent activity you can tap to edit, bills, categories, budgets and goals. A brand-new account sees the checklist only, not a wall of empty panels.
+- **Transactions**: type, category, month and sort filters, grouped by day with each day's net, tap a row to edit or delete (with undo), CSV export.
+- **Budgets**: month arrows, an even-pace marker, a per-day allowance, and an edit sheet with delete.
+- **Goals**: amount needed per month to hit a target date, withdraw as well as add money, quick amounts.
+- **IOUs, Groups, Net worth, Tax planner, Import, Analytics, Ask and Settings** rebuilt on the new components. Analytics merges Trends into Overview and adds a "Biggest changes" list.
+- **Settings** is one page in clear sections, with a Delete all records option and a confirmation before restoring a backup.
+- **Voice entry** shows what it heard and waits for you to tap Save, instead of saving on a two-second countdown. You can type instead, or open the full form to edit first.
+
+### Guest mode
+- **Use without an account.** The sign-in screen has a "Use without an account" option, and when Firebase isn't configured the app goes straight to "Start using MoneyMate" instead of a sign-in form that can't work. Data stays in the browser; signing in later moves it to your account.
+- Receipt scanning, Ask MoneyMate and bill reminders explain that they need an account, and say plainly when accounts aren't turned on for the installation.
+
+### Removed (fake or misleading)
+- Demo mode (`npm run demo`, `build:demo`) and its six months of invented transactions.
+- The sign-in page's animated showcase with made-up figures.
+- The "Try sample messages" button on Import.
+- The voice assistant's randomly generated waveform and its spoken "authorized" confirmation.
+- The full-screen "Payment successful" overlay shown when logging an expense.
+- Settings copy claiming Firestore sync, "Zero server telemetry" and "100% client sovereign", and the "Monthly cycle anchor day" setting that did nothing.
+- The decorative stock-photo banner and quote on Goals, and leftover Vite assets.
+
+### Fixed
+- Confirmation dialogs weren't portaled, so they could appear behind other dialogs or the phone navigation.
+- Date pickers and dropdowns were forced into dark mode, which broke them in the light theme.
+- Group expense delete buttons were invisible on touch screens; deleting a group had no confirmation.
+- Savings goals on Home showed an empty header when you had none.
+- Currency labels and chart axes were hard-coded to ₹ regardless of your currency.
+- The health score showed a number before there was enough data to mean anything.
+- Single-key shortcuts (N, I, H) fired while a dialog was open.
+- Focusing a button changed its corner radius.
+- Adding money to a goal past its target showed an unformatted number.
+
 ## 3.0.0
 
 ### New

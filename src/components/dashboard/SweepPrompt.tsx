@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { sweepOffer } from '@/lib/autopilot';
-import { Sheet, btnPrimary, btnGhost } from '@/components/shared/Sheet';
+import { Dialog } from '@/components/ui/Dialog';
+import { Button } from '@/components/ui';
 import { formatCurrency } from '@/lib/utils';
-import { confetti } from '@/lib/fx';
 
 /** Early each month: "You kept ₹X last month. Move some into a goal?" */
 export const SweepPrompt: React.FC = () => {
@@ -21,28 +21,28 @@ export const SweepPrompt: React.FC = () => {
   const amount = Math.round((offer.surplus * pct) / 100 / 100) * 100;
   const done = (moved: boolean) => {
     updateSettings({ lastSweepMonth: offer.month }, { silent: true });
-    if (moved && amount > 0) { addMoneyToGoal(goalId, amount); confetti(); }
+    if (moved && amount > 0) { addMoneyToGoal(goalId, amount); }
     setShow(false);
   };
   const month = new Date(`${offer.month}-01T12:00:00`).toLocaleDateString(undefined, { month: 'long' });
 
   return (
-    <Sheet open={show} onClose={() => done(false)} title={`You kept ${formatCurrency(offer.surplus)} in ${month}`}
-      footer={<div className="flex gap-2"><button onClick={() => done(false)} className={`${btnGhost} flex-1`}>Not now</button><button onClick={() => done(true)} className={`${btnPrimary} flex-1`}>Move {formatCurrency(amount)}</button></div>}>
-      <p className="text-sm text-mm-text2">Money that sits in your account tends to get spent. Put some of it to work on a goal.</p>
+    <Dialog open={show} onClose={() => done(false)} title={`You kept ${formatCurrency(offer.surplus)} in ${month}`}
+      footer={<div className="flex gap-2"><Button variant="secondary" size="lg" className="flex-1" onClick={() => done(false)}>Not now</Button><Button size="lg" className="flex-1" onClick={() => done(true)}>Move {formatCurrency(amount)}</Button></div>}>
+      <p className="text-[15px] text-mm-text2">Money left in your account tends to get spent. Move some of it into a goal.</p>
       <div className="mt-5">
         <div className="flex justify-between text-xs text-mm-text2 mb-2"><span>How much?</span><span className="text-mm-text font-semibold number-display">{pct}% · {formatCurrency(amount)}</span></div>
-        <input type="range" min={10} max={100} step={10} value={pct} onChange={e => setPct(+e.target.value)} className="w-full accent-[var(--color-mm-gold)]" aria-label="Share of surplus to move" />
+        <input type="range" min={10} max={100} step={10} value={pct} onChange={e => setPct(+e.target.value)} className="w-full accent-[var(--color-mm-accent)]" aria-label="Share of surplus to move" />
       </div>
       <div className="grid gap-2 mt-5">
         {open.map(g => (
           <button key={g.id} onClick={() => setGoalId(g.id)} aria-pressed={goalId === g.id}
-            className={`flex items-center justify-between p-3 rounded-xl border text-left ${goalId === g.id ? 'border-mm-gold bg-mm-gold/10' : 'border-mm-line/12'}`}>
+            className={`flex items-center justify-between p-3 rounded-xl border text-left ${goalId === g.id ? 'border-mm-accent bg-mm-accent/[0.07]' : 'border-mm-line/12'}`}>
             <span className="text-sm text-mm-text">{g.name}</span>
             <span className="text-xs text-mm-muted number-display">{Math.round((g.savedAmount / g.targetAmount) * 100)}% funded</span>
           </button>
         ))}
       </div>
-    </Sheet>
+    </Dialog>
   );
 };

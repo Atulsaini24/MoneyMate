@@ -1,101 +1,57 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { formatCurrency } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Plus, Target } from 'lucide-react';
+import { useApp } from '@/context/AppContext';
+import { formatCurrency } from '@/lib/utils';
+import { goalLook } from '@/lib/goals';
+import { goalPhoto } from '@/lib/photos';
+import { Photo } from '@/components/shared/Photo';
+import { Button, EmptyState, LinkButton, SectionTitle } from '@/components/ui';
 
-const goalImgMap: Record<string, string> = {
-  'New iPhone': '/assets/moneymate/goals/iphone.jpg',
-  'Europe Trip': '/assets/moneymate/goals/europe-trip.jpg',
-  'Emergency Fund': '/assets/moneymate/goals/emergency-fund.jpg',
-  'New Car': '/assets/moneymate/goals/new-car.jpg',
-  'Dream House': '/assets/moneymate/goals/dream-house.jpg',
-  'Education': '/assets/moneymate/goals/education.jpg',
-  'Bike': '/assets/moneymate/goals/bike.jpg',
-  'Laptop': '/assets/moneymate/goals/laptop.jpg',
-  'Camera': '/assets/moneymate/goals/camera.jpg',
-  'Gaming Setup': '/assets/moneymate/goals/gaming-setup.jpg',
-  'Travel World': '/assets/moneymate/goals/travel-world.jpg',
-};
-
+/** Goals as a row of photo cards you swipe through. */
 export const SavingsGoalsPreview: React.FC = () => {
   const { goals } = useApp();
   const navigate = useNavigate();
-
+  const open = [...goals].sort((a, b) => Number(a.savedAmount >= a.targetAmount) - Number(b.savedAmount >= b.targetAmount));
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-mm-text">
-            Savings goals
-          </h3>
-          <p className="text-xs text-mm-text2 mt-0.5">Progress towards what you’re saving for</p>
-        </div>
-        <button 
-          onClick={() => navigate('/goals')}
-          className="text-xs text-mm-gold font-medium hover:text-mm-gold-light transition-colors"
-        >
-          All Goals ({goals.length}) →
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {goals.slice(0, 4).map((goal) => {
-          const progress = Math.min(Math.round((goal.savedAmount / goal.targetAmount) * 100), 100);
-          const imageSrc = goal.image || goalImgMap[goal.name];
-
-          return (
-            <div
-              key={goal.id}
-              className="glass-card overflow-hidden cursor-pointer group flex flex-col justify-between"
-              onClick={() => navigate('/goals')}
-            >
-              {/* Image banner with dark editorial overlay */}
-              {imageSrc && (
-                <div className="relative h-28 w-full overflow-hidden bg-mm-bg2">
-                  <img
-                    src={imageSrc}
-                    alt={goal.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  {/* Subtle dark gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-mm-card via-mm-card/60 to-transparent" />
-                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-mm-bg/80 backdrop-blur-sm border border-mm-line/16 text-[10px] font-mono text-mm-gold">
-                    {progress}%
-                  </div>
-                </div>
-              )}
-
-              {/* Goal metadata */}
-              <div className="p-4 pt-2 flex-1 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between gap-1">
-                    <h4 className="text-sm font-semibold text-mm-text truncate tracking-tight">{goal.name}</h4>
-                    <ArrowUpRight size={13} className="text-mm-muted group-hover:text-mm-gold transition-colors" />
-                  </div>
-                  <p className="text-xs text-mm-muted mt-0.5 number-display">
-                    Target: {formatCurrency(goal.targetAmount)}
-                  </p>
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-mm-line/8">
-                  <div className="flex items-center justify-between text-[11px] text-mm-text2 mb-1.5 number-display">
-                    <span>{formatCurrency(goal.savedAmount)} saved</span>
-                    <span className="text-mm-muted">{formatCurrency(Math.max(0, goal.targetAmount - goal.savedAmount))} left</span>
-                  </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-bar-fill bg-mm-gold"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <section className="panel p-5 sm:p-6 h-full flex flex-col overflow-hidden" aria-labelledby="goals-title">
+      <SectionTitle id="goals-title" title="Goals" subtitle={goals.length ? `${goals.length} goal${goals.length === 1 ? '' : 's'}` : undefined}
+        action={goals.length ? <LinkButton onClick={() => navigate('/goals')}>All goals</LinkButton> : undefined} />
+      {goals.length === 0 ? (
+        <EmptyState compact icon={Target} title="Save towards something" description="A trip, a phone, an emergency fund. Goals show how far you’ve got."
+          action={<Button variant="secondary" onClick={() => navigate('/goals')}>Create a goal</Button>} />
+      ) : (
+        <ul className="flex gap-3 overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-px-5 sm:scroll-px-6 -mx-5 px-5 sm:-mx-6 sm:px-6 pb-1 pt-1">
+          {open.slice(0, 6).map((g, i) => {
+            const look = goalLook(g);
+            const pct = g.targetAmount > 0 ? Math.min(100, (g.savedAmount / g.targetAmount) * 100) : 0;
+            return (
+              <motion.li key={g.id} className="snap-start shrink-0 w-[78%] sm:w-[260px]"
+                initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.06, type: 'spring', stiffness: 260, damping: 28 }}>
+                <button onClick={() => navigate('/goals')} className="block w-full text-left rounded-[20px] overflow-hidden active:scale-[0.98] transition-transform">
+                  <Photo src={goalPhoto(g.name, look.icon, 600)} color={look.color} icon={look.icon} className="h-44 rounded-[20px]">
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_25%,rgb(0_0_0/0.72))]" />
+                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                      <p className="text-[16px] font-semibold truncate">{g.name}</p>
+                      <p className="text-[13px] text-white/80 tabular mt-0.5"><b className="font-semibold text-white">{formatCurrency(g.savedAmount)}</b> of {formatCurrency(g.targetAmount)}</p>
+                      <div className="mt-2.5 h-1.5 rounded-full bg-white/25 overflow-hidden" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`${g.name} progress`}>
+                        <motion.div className="h-full rounded-full bg-[var(--color-mm-marigold)]" initial={{ width: 0 }} whileInView={{ width: `${pct}%` }} viewport={{ once: true }} transition={{ duration: 1, delay: 0.2 + i * 0.06, ease: [0.16, 1, 0.3, 1] }} />
+                      </div>
+                    </div>
+                  </Photo>
+                </button>
+              </motion.li>
+            );
+          })}
+          <li className="snap-start shrink-0 w-[44%] sm:w-[160px]">
+            <button onClick={() => navigate('/goals')} className="w-full h-44 rounded-[20px] border-2 border-dashed border-mm-line/15 flex flex-col items-center justify-center gap-2 text-mm-text2 hover:border-mm-accent/50 hover:text-mm-accent transition-colors">
+              <span className="w-11 h-11 rounded-full bg-mm-accent/10 text-mm-accent flex items-center justify-center"><Plus size={20} /></span>
+              <span className="text-[13px] font-semibold">New goal</span>
+            </button>
+          </li>
+        </ul>
+      )}
+    </section>
   );
 };

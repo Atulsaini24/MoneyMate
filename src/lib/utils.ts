@@ -106,9 +106,10 @@ export function daysInMonth(month: string): number {
 
 export function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good Morning';
-  if (hour < 17) return 'Good Afternoon';
-  return 'Good Evening';
+  if (hour < 5) return 'Good evening';
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
 export function percentChange(current: number, previous: number): number {
@@ -116,8 +117,25 @@ export function percentChange(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+/** CSS colour for a budget's progress: accent, then warning, then over budget. */
 export function getProgressColor(percentage: number): string {
-  if (percentage >= 90) return '#D98282'; // Negative financial indicator
-  if (percentage >= 75) return '#D9B46F'; // Warning indicator
-  return '#D6BC86'; // Champagne gold
+  if (percentage >= 100) return 'var(--color-mm-negative)';
+  if (percentage >= 80) return 'var(--color-mm-warning)';
+  return 'var(--color-mm-accent)';
+}
+
+/** Compact money for chart axes, e.g. ₹12K, $1.2M. */
+export function formatAxis(amount: number): string {
+  return formatCurrency(amount, { compact: true, reveal: true });
+}
+
+/** "3 days ago", "today", "in 4 days" */
+export function relativeDay(iso: string, now = new Date()): string {
+  const a = new Date(iso); a.setHours(0, 0, 0, 0);
+  const b = new Date(now); b.setHours(0, 0, 0, 0);
+  const d = Math.round((+a - +b) / 86_400_000);
+  if (d === 0) return 'today';
+  if (d === -1) return 'yesterday';
+  if (d === 1) return 'tomorrow';
+  return d < 0 ? `${-d} days ago` : `in ${d} days`;
 }

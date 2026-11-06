@@ -1,286 +1,165 @@
-import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, ChevronDown, PieChart as PieIcon, LineChart as LineIcon, Layers } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
-import { formatCurrency, getCurrentMonth, getMonthName, percentChange } from '@/lib/utils';
-import { EXPENSE_CATEGORIES } from '@/types';
+import React, { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, ChartColumn, TrendingDown, TrendingUp } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { useApp } from '@/context/AppContext';
+import { addMonths, formatAxis, formatCurrency, getCurrentMonth, getMonthName, percentChange, cn } from '@/lib/utils';
+import { EXPENSE_CATEGORIES, categoryInfo } from '@/types';
 import { SpendingHeatmap } from '@/components/reports/SpendingHeatmap';
 import { SubscriptionsPanel } from '@/components/reports/SubscriptionsPanel';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from 'recharts';
+import { ChartTooltip } from '@/components/reports/ChartTooltip';
+import { CategoryIcon } from '@/components/shared/CategoryIcon';
+import { EmptyState, IconButton, Page, PageHeader, Segmented, Stat, Button } from '@/components/ui';
 
-const LUXE_CHART_COLORS = [
-  '#D6BC86', // Champagne Gold
-  '#E9D8AF', // Soft Gold Highlight
-  '#B6B0A5', // Secondary Warm Slate
-  '#83C9A5', // Positive Sage
-  '#D98282', // Negative Coral
-  '#8E8A83', // Warm Charcoal
-  '#D9B46F', // Warning Gold
-  '#5C5852', // Deep Taupe
-  '#A39E95', // Silver Oyster
+type Tab = 'overview' | 'categories' | 'calendar' | 'subscriptions';
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'overview', label: 'Overview' }, { value: 'categories', label: 'Categories' },
+  { value: 'calendar', label: 'Calendar' }, { value: 'subscriptions', label: 'Bills' },
 ];
 
 export const ReportsPage: React.FC = () => {
-  const { getCategorySpending, getMonthlyIncome, getMonthlyExpenses } = useApp();
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const { transactions, getCategorySpending, getMonthlyIncome, getMonthlyExpenses } = useApp();
   const [params, setParams] = useSearchParams();
-  type Tab = 'overview' | 'trends' | 'categories' | 'calendar' | 'subscriptions';
-  const TABS: { id: Tab; label: string }[] = [
-    { id: 'overview', label: 'Overview' }, { id: 'trends', label: 'Trends' }, { id: 'categories', label: 'Categories' },
-    { id: 'calendar', label: 'Calendar' }, { id: 'subscriptions', label: 'Subscriptions' },
-  ];
-  const activeTab: Tab = (TABS.find(t => t.id === params.get('tab'))?.id) || 'overview';
-  const monthScoped = activeTab !== 'calendar' && activeTab !== 'subscriptions';
-  const setActiveTab = (t: Tab) => setParams(t === 'overview' ? {} : { tab: t }, { replace: true });
-
-  const prevDate = new Date(parseInt(selectedMonth.split('-')[0]), parseInt(selectedMonth.split('-')[1]) - 2, 1);
-  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
-
-  const income = getMonthlyIncome(selectedMonth);
-  const expenses = getMonthlyExpenses(selectedMonth);
-  const netCashFlow = income - expenses;
-  const savingsRate = income > 0 ? Math.round(((income - expenses) / income) * 100) : 0;
-
-  const prevIncome = getMonthlyIncome(prevMonth);
-  const prevExpenses = getMonthlyExpenses(prevMonth);
-
-  // Category spending
-  const categoryData = useMemo(() =>
-    EXPENSE_CATEGORIES.map(cat => ({
-      name: cat.name,
-      value: getCategorySpending(selectedMonth, cat.name),
-      color: cat.color,
-    })).filter(c => c.value > 0).sort((a, b) => b.value - a.value),
-    [selectedMonth, getCategorySpending]
-  );
-
-  // Monthly trend (last 6 months)
-  const trendData = useMemo(() => {
-    const data = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      data.push({
-        month: d.toLocaleDateString('en-IN', { month: 'short' }),
-        income: getMonthlyIncome(m),
-        expenses: getMonthlyExpenses(m),
-      });
-    }
-    return data;
-  }, [getMonthlyIncome, getMonthlyExpenses]);
-
-  // Months for selector
-  const months: string[] = [];
-  for (let i = -6; i <= 0; i++) {
-    const d = new Date();
-    d.setMonth(d.getMonth() + i);
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload) return null;
-    return (
-      <div className="glass-card-elevated px-3 py-2 text-xs border border-mm-line/20 shadow-2xl rounded-xl bg-mm-elevated">
-        <p className="text-mm-text font-medium mb-1">{label}</p>
-        {payload.map((p: any) => (
-          <p key={p.name} style={{ color: p.color }} className="number-display font-medium">
-            {p.name}: {formatCurrency(p.value)}
-          </p>
-        ))}
-      </div>
-    );
+  const tab: Tab = (TABS.find(t => t.value === params.get('tab'))?.value) || 'overview';
+  const current = getCurrentMonth();
+  const month = /^\d{4}-\d{2}$/.test(params.get('month') || '') ? params.get('month')! : current;
+  const set = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(patch)) v === null ? next.delete(k) : next.set(k, v);
+    setParams(next, { replace: true });
   };
+  const monthScoped = tab === 'overview' || tab === 'categories';
+  const prev = addMonths(month, -1);
+
+  const income = getMonthlyIncome(month), spent = getMonthlyExpenses(month);
+  const saved = income - spent;
+  const rate = income > 0 ? Math.round((saved / income) * 100) : null;
+
+  const trend = useMemo(() => Array.from({ length: 6 }, (_, k) => {
+    const m = addMonths(month, k - 5);
+    const [y, mo] = m.split('-').map(Number);
+    return { month: new Date(y, mo - 1, 1).toLocaleDateString(undefined, { month: 'short' }), Income: getMonthlyIncome(m), Spending: getMonthlyExpenses(m) };
+  }), [month, getMonthlyIncome, getMonthlyExpenses]);
+
+  const cats = useMemo(() => EXPENSE_CATEGORIES.map(c => ({ name: c.name, now: getCategorySpending(month, c.name), before: getCategorySpending(prev, c.name) }))
+    .filter(c => c.now > 0 || c.before > 0).sort((a, b) => b.now - a.now), [month, prev, getCategorySpending]);
+  const maxCat = Math.max(1, ...cats.map(c => c.now));
+  const movers = [...cats].filter(c => c.before > 0 || c.now > 0).sort((a, b) => Math.abs(b.now - b.before) - Math.abs(a.now - a.before)).slice(0, 4);
 
   return (
-    <div className="min-h-screen pb-32 lg:pb-8">
-      <div className="px-4 md:px-6 py-5 md:py-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-mm-text tracking-tight">
-              Analytics
-            </h1>
-            <p className="text-xs text-mm-muted mt-0.5">Where your money comes from and where it goes</p>
-          </div>
-          <div className={`relative ${monthScoped ? '' : 'invisible'}`}>
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="appearance-none px-4 py-2 pr-9 rounded-xl glass-subtle text-xs font-semibold text-mm-text focus:outline-none focus:border-mm-gold/50 [color-scheme:dark] border border-mm-line/18 cursor-pointer shadow-lg bg-mm-bg2"
-            >
-              {months.map(m => (
-                <option key={m} value={m}>{getMonthName(m)}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-mm-muted pointer-events-none" />
-          </div>
-        </div>
+    <Page>
+      <PageHeader title="Analytics" subtitle="Where your money comes from, where it goes, and how that’s changing." />
 
-        {/* Tab navigation */}
-        <div role="tablist" className="flex gap-1 p-1 rounded-xl glass-subtle w-full sm:w-fit overflow-x-auto scrollbar-none border border-mm-line/14 bg-mm-bg2">
-          {TABS.map(({ id: tab, label }) => (
-            <button
-              key={tab}
-              role="tab"
-              aria-selected={activeTab === tab}
-              onClick={() => setActiveTab(tab)}
-              className={`shrink-0 py-1.5 px-3.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200 border ${
-                activeTab === tab
-                  ? 'bg-mm-gold/15 text-mm-gold border border-mm-gold/35 shadow-sm'
-                  : 'text-mm-muted hover:text-mm-text border-transparent'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Summary cards */}
-        {monthScoped && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-5 specular-sheen min-w-0">
-            <p className="text-[11px] font-semibold text-mm-muted uppercase tracking-wider mb-1">Total Monthly Income</p>
-            <p className="text-xl sm:text-2xl font-medium text-mm-positive number-display truncate">{formatCurrency(income)}</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }} className="glass-card p-4 sm:p-5 specular-sheen min-w-0">
-            <p className="text-[11px] font-semibold text-mm-muted uppercase tracking-wider mb-1">Total Expenses</p>
-            <p className="text-xl sm:text-2xl font-medium text-mm-negative number-display truncate">{formatCurrency(expenses)}</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="glass-card p-4 sm:p-5 specular-sheen min-w-0">
-            <p className="text-[11px] font-semibold text-mm-muted uppercase tracking-wider mb-1">Net Savings Accrual</p>
-            <p className={`text-xl sm:text-2xl font-medium number-display truncate ${netCashFlow >= 0 ? 'text-mm-gold' : 'text-mm-negative'}`}>
-              {formatCurrency(netCashFlow)}
-            </p>
-          </motion.div>
-        </div>
-        )}
-
-        {activeTab === 'calendar' && <SpendingHeatmap />}
-        {activeTab === 'subscriptions' && <SubscriptionsPanel />}
-
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Savings rate */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="glass-card-elevated p-6 specular-sheen">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-widest font-semibold text-mm-muted">Capital Savings Rate</p>
-                  <p className="text-4xl font-medium text-mm-gold number-display mt-1">{savingsRate}%</p>
-                  <p className="text-xs text-mm-text2 mt-2 font-medium">
-                    {savingsRate >= 20 ? 'Optimal wealth accumulation trajectory maintained.' : 'Target at least 25% allocation to investment & high-yield savings.'}
-                  </p>
-                </div>
-                <div className="w-24 h-24 relative flex-shrink-0">
-                  <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(214,188,134,0.1)" strokeWidth="3" />
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="#D6BC86" strokeWidth="3"
-                      strokeDasharray={`${Math.max(0, savingsRate)} ${Math.max(0, 100 - savingsRate)}`} strokeLinecap="round" />
-                  </svg>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Income vs Expenses chart */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} className="glass-card p-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-mm-muted mb-5">Income vs Outflow Momentum (Last 6 Months)</h3>
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={trendData} barGap={6}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(214,188,134,0.06)" />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#77736D' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#77736D' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="income" fill="#83C9A5" radius={[4, 4, 0, 0]} name="Income" />
-                    <Bar dataKey="expenses" fill="#D98282" radius={[4, 4, 0, 0]} name="Expenses" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {activeTab === 'trends' && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-mm-muted mb-5">Monthly Expense Trend Trajectory</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(214,188,134,0.06)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#77736D' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#77736D' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="expenses" fill="#D6BC86" radius={[4, 4, 0, 0]} name="Expenses" />
-                </BarChart>
-              </ResponsiveContainer>
+      {transactions.length === 0 ? (
+        <div className="panel"><EmptyState icon={ChartColumn} title="Nothing to analyse yet" description="Charts and trends appear here once you’ve added a few transactions." /></div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+              <Segmented label="Report" value={tab} onChange={v => set({ tab: v === 'overview' ? null : v })} options={TABS} />
             </div>
-          </motion.div>
-        )}
-
-        {activeTab === 'categories' && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-mm-muted mb-5">Category Spending Proportions</h3>
-            {categoryData.length === 0 ? (
-              <p className="text-sm text-mm-muted text-center py-10">No categorized transaction activity recorded for this period.</p>
-            ) : (
-              <div className="space-y-4">
-                {categoryData.map((cat, i) => {
-                  const maxValue = categoryData[0]?.value || 1;
-                  const width = Math.round((cat.value / maxValue) * 100);
-                  return (
-                    <div key={cat.name} className="flex items-center gap-2 sm:gap-3">
-                      <span className="text-xs text-mm-text2 w-24 sm:w-32 truncate font-medium flex-shrink-0">{cat.name}</span>
-                      <div className="flex-1 progress-bar">
-                        <motion.div
-                          className="progress-bar-fill"
-                          style={{ backgroundColor: LUXE_CHART_COLORS[i % LUXE_CHART_COLORS.length] }}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${width}%` }}
-                          transition={{ duration: 0.7, delay: i * 0.03 }}
-                        />
-                      </div>
-                      <span className="text-xs font-medium text-mm-text number-display w-16 sm:w-20 text-right flex-shrink-0">
-                        {formatCurrency(cat.value)}
-                      </span>
-                    </div>
-                  );
-                })}
+            {monthScoped && (
+              <div className="flex items-center gap-1">
+                <IconButton label="Previous month" icon={ChevronLeft} onClick={() => set({ month: addMonths(month, -1) })} />
+                <span className="text-[15px] font-semibold text-mm-text min-w-[140px] text-center">{getMonthName(month)}</span>
+                <IconButton label="Next month" icon={ChevronRight} onClick={() => set({ month: addMonths(month, 1) })} disabled={month >= current} />
               </div>
             )}
-          </motion.div>
-        )}
-
-        {/* Comparison with previous month */}
-        {monthScoped && (
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-mm-muted mb-4">Compared with last month</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-mm-bg2 border border-mm-line/12">
-              <p className="text-xs text-mm-muted mb-1">Income</p>
-              <div className="flex items-center gap-1.5 mt-1">
-                {income >= prevIncome ? <TrendingUp size={16} className="text-mm-positive" /> : <TrendingDown size={16} className="text-mm-negative" />}
-                <span className={`text-base font-medium number-display ${income >= prevIncome ? 'text-mm-positive' : 'text-mm-negative'}`}>
-                  {percentChange(income, prevIncome)}%
-                </span>
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-mm-bg2 border border-mm-line/12">
-              <p className="text-xs text-mm-muted mb-1">Spending</p>
-              <div className="flex items-center gap-1.5 mt-1">
-                {expenses <= prevExpenses ? <TrendingDown size={16} className="text-mm-positive" /> : <TrendingUp size={16} className="text-mm-negative" />}
-                <span className={`text-base font-medium number-display ${expenses <= prevExpenses ? 'text-mm-positive' : 'text-mm-negative'}`}>
-                  {percentChange(expenses, prevExpenses)}%
-                </span>
-              </div>
-            </div>
           </div>
-        </motion.div>
-        )}
-      </div>
-    </div>
+
+          {monthScoped && (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <Stat className="panel p-4" label="Income" value={formatCurrency(income)} tone="positive"
+                hint={getMonthlyIncome(prev) > 0 ? `${percentChange(income, getMonthlyIncome(prev))}% vs ${getMonthName(prev).split(' ')[0]}` : undefined} />
+              <Stat className="panel p-4" label="Spending" value={formatCurrency(spent)}
+                hint={getMonthlyExpenses(prev) > 0 ? `${percentChange(spent, getMonthlyExpenses(prev))}% vs ${getMonthName(prev).split(' ')[0]}` : undefined} />
+              <Stat className="panel p-4" label="Saved" value={`${saved < 0 ? '−' : ''}${formatCurrency(Math.abs(saved))}`} tone={saved < 0 ? 'negative' : 'accent'}
+                hint={rate !== null ? `${rate}% of income` : undefined} />
+            </div>
+          )}
+
+          {tab === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-4">
+              <section className="panel p-5 sm:p-6">
+                <h2 className="text-[17px] font-semibold text-mm-text">Income and spending</h2>
+                <p className="text-[13px] text-mm-muted mb-4">Six months to {getMonthName(month)}</p>
+                <div className="h-64 sensitive">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trend} barGap={4} margin={{ left: -8, right: 4 }}>
+                      <CartesianGrid vertical={false} stroke="var(--color-mm-text)" strokeOpacity={0.07} />
+                      <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--color-mm-muted)' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 12, fill: 'var(--color-mm-muted)' }} axisLine={false} tickLine={false} tickFormatter={formatAxis} width={56} />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--color-mm-text)', fillOpacity: 0.04 }} />
+                      <Bar dataKey="Income" fill="var(--color-mm-accent)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="Spending" fill="var(--color-mm-chart-2)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex gap-5 text-[13px] text-mm-text2 mt-2">
+                  <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-mm-accent" />Income</span>
+                  <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-mm-chart-2" />Spending</span>
+                </div>
+              </section>
+              <section className="panel p-5 sm:p-6">
+                <h2 className="text-[17px] font-semibold text-mm-text">Biggest changes</h2>
+                <p className="text-[13px] text-mm-muted mb-2">Compared with {getMonthName(prev).split(' ')[0]}</p>
+                {movers.length === 0 ? <p className="text-sm text-mm-text2 py-4">No spending in either month.</p> : (
+                  <ul className="divide-hairline">
+                    {movers.map(c => {
+                      const diff = c.now - c.before; const info = categoryInfo(c.name, 'expense');
+                      return (
+                        <li key={c.name} className="flex items-center gap-3 py-3">
+                          <CategoryIcon name={info.icon} color={info.color} size="sm" />
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-[15px] font-medium text-mm-text truncate">{c.name}</span>
+                            <span className="block text-[13px] text-mm-muted tabular">{formatCurrency(c.before)} → {formatCurrency(c.now)}</span>
+                          </span>
+                          <span className={cn('flex items-center gap-1 text-sm font-semibold tabular', diff > 0 ? 'text-mm-negative' : diff < 0 ? 'text-mm-positive' : 'text-mm-muted')}>
+                            {diff > 0 ? <TrendingUp size={15} /> : diff < 0 ? <TrendingDown size={15} /> : null}{diff > 0 ? '+' : diff < 0 ? '−' : ''}{formatCurrency(Math.abs(diff))}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <Button variant="ghost" size="sm" className="mt-2 -ml-2" onClick={() => set({ tab: 'categories' })}>All categories</Button>
+              </section>
+            </div>
+          )}
+
+          {tab === 'categories' && (
+            <section className="panel p-5 sm:p-6">
+              <h2 className="text-[17px] font-semibold text-mm-text mb-4">Spending by category</h2>
+              {cats.filter(c => c.now > 0).length === 0 ? <p className="text-sm text-mm-text2 py-6 text-center">No spending recorded in {getMonthName(month)}.</p> : (
+                <ul className="space-y-4">
+                  {cats.filter(c => c.now > 0).map(c => {
+                    const info = categoryInfo(c.name, 'expense');
+                    const change = c.before > 0 ? percentChange(c.now, c.before) : null;
+                    return (
+                      <li key={c.name} className="flex items-center gap-3">
+                        <CategoryIcon name={info.icon} color={info.color} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-[15px] font-medium text-mm-text truncate">{c.name}</span>
+                            <span className="text-[15px] font-semibold text-mm-text tabular">{formatCurrency(c.now)}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <div className="progress-track flex-1"><div className="progress-fill" style={{ width: `${(c.now / maxCat) * 100}%`, background: info.color }} /></div>
+                            <span className="text-xs text-mm-muted tabular w-24 text-right">{spent > 0 ? Math.round((c.now / spent) * 100) : 0}%{change !== null ? ` · ${change > 0 ? '+' : ''}${change}%` : ''}</span>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          )}
+
+          {tab === 'calendar' && <SpendingHeatmap />}
+          {tab === 'subscriptions' && <SubscriptionsPanel />}
+        </>
+      )}
+    </Page>
   );
 };
-
